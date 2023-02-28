@@ -140,6 +140,11 @@ function Invoke-GuiPsComplete() {
         -CommandParameter "$buffer" `
          
 
+    ## $c[0]
+    $colonIndex = "$buffer".IndexOf(':');
+    
+    
+
     # debug
     # writeDebug @{r=$replacement; r2=$completion}
     # Write-Warning "`n`n$replacement.ResultType"
@@ -155,31 +160,53 @@ function Invoke-GuiPsComplete() {
 
         switch ($replacement.ExitKey) {
             Tab {
-                [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                ## ex scp host:/home/user/
+                if ($colonIndex -ne -1) {
+                    $commandHost = "$buffer".Substring(0,$colonIndex)
+                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+                        0, 
+                        "$buffer".Length, 
+                        $fullCompletionText
+                        )
+                }else {
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
 
-                if ($replacement.ResultType -eq 'Command') {
-                    HandleCompletionCommand $replacement.CompletionText
-                }
-                elseif ($replacement.ResultType -eq 'ParameterName') {
-                    HandleReplacementArgChain $replacement
-                }
-                elseif ($replacement.ResultType -eq 'ProviderContainer') {
-                    if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                    if ($replacement.ResultType -eq 'Command') {
+                        HandleCompletionCommand $replacement.CompletionText
+                    }
+                    elseif ($replacement.ResultType -eq 'ParameterName') {
+                        HandleReplacementArgChain $replacement
+                    }
+                    elseif ($replacement.ResultType -eq 'ProviderContainer') {
+                        if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                        }
+                        else {
+                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                        }
                     }
                     else {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                        ## e.g. apt install[SPACE]
+                        else {
+                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+                        }
                     }
                 }
-                else {
-                    ## e.g. apt install[SPACE]
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
-                }
-                
             }
             Enter {
-                
-                [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                ## ex scp host:/home/user/
+                if ($colonIndex -ne -1) {
+                    $commandHost = "$buffer".Substring(0,$colonIndex)
+                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+                        0, 
+                        "$buffer".Length, 
+                        $fullCompletionText
+                        )
+                }else {
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                }
             }
             Escape {
                 [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursorPosition);
