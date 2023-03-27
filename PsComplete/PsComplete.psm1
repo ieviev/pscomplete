@@ -32,9 +32,6 @@ function HandleReplacementArgChain($replacement) {
     }
 }
 
-# function writeDebug($variable) {
-#     $variable | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample.json
-# }
 
 ## Command Helpers
 function CommandGetType {
@@ -56,17 +53,18 @@ function GetPositionParameters {
     
 # global:
 New-Variable -Scope Global -Name PsCompleteSettings -Value ([PSCustomObject]@{
-	AutoExpandCommands = @("")
-    ExpandByArgumentType = $false
-    ForceClearBeforeUse = $false
-})
+        AutoExpandCommands   = @("")
+        ExpandByArgumentType = $false
+        ForceClearBeforeUse  = $false
+    })
 
 
 function HandleCompletionCommand($commandname) {
     
     $command = Get-Command $commandname
     [System.Management.Automation.CommandTypes] $commandType = CommandGetType $command
-                    
+    # debug
+    # @{r = $command; r2 = $commandname } | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample2.json                    
     switch ($commandType) {
         ([System.Management.Automation.CommandTypes]::Application) { 
             ## e.g. apt, cmd, /bin/sh - insert space after
@@ -77,7 +75,6 @@ function HandleCompletionCommand($commandname) {
         ([System.Management.Automation.CommandTypes]::Cmdlet) {
             $params = $command.ParameterSets[0].Parameters
             $posParameters = GetPositionParameters($params)
-            # writeDebug $posParameters.Count
             [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ')                
             if ($posParameters.Length -gt 0) {
                 $p1 = $posParameters[0]
@@ -99,6 +96,7 @@ function HandleCompletionCommand($commandname) {
             }
                             
         }
+        
         ([System.Management.Automation.CommandTypes]::Function) {
             [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ')
         }
@@ -113,6 +111,16 @@ function AnsiClearScreen() {
     Write-Host -NoNewline "`e[2J"
     Write-Host -NoNewline "`e[H"
 }
+
+function quoteIfNeeded( [string] $str) {
+    if ($str.Contains(',')) { 
+        return "`'$str`'";
+    } 
+    else { 
+        return $str;
+    }
+}
+
 
 function Invoke-GuiPsComplete() {
     $buffer = ''
@@ -138,39 +146,38 @@ function Invoke-GuiPsComplete() {
     Invoke-PsComplete `
         -Content $completion.CompletionMatches `
         -CommandParameter "$buffer" `
-         
 
     ## $c[0]
     $colonIndex = "$buffer".IndexOf(':');
-    
-    
 
     # debug
-    # writeDebug @{r=$replacement; r2=$completion}
-    # Write-Warning "`n`n$replacement.ResultType"
-    
+    # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample.json
+
     if ($replacement) {
         if ($useAnsiWorkaround ) {
             Write-Host -NoNewline "`e[2J" # cursor scroll up 5 lines
             Write-Host -NoNewline "`e[H" # cursor scroll up 5 lines
-            # Write-Host -NoNewline "`eM`eM`eM`eM`eM" # cursor scroll up 5 lines
-            # Write-Host -NoNewline "`eM`eM`eM`eM`eM" # cursor scroll up 5 lines
-            # Write-Host -NoNewline "`eM`eM`eM`eM`eM" # cursor scroll up 5 lines
         }
+        $quoted = quoteIfNeeded($replacement.CompletionText);
 
         switch ($replacement.ExitKey) {
             Tab {
                 ## ex scp host:/home/user/
                 if ($colonIndex -ne -1) {
-                    $commandHost = "$buffer".Substring(0,$colonIndex)
+                    $commandHost = "$buffer".Substring(0, $colonIndex)
                     $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
                     [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
                         0, 
                         "$buffer".Length, 
                         $fullCompletionText
-                        )
-                }else {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                    )
+                }
+                else {
+
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+                        $completion.ReplacementIndex, 
+                        $completion.ReplacementLength, 
+                        $quoted)
 
                     if ($replacement.ResultType -eq 'Command') {
                         HandleCompletionCommand $replacement.CompletionText
@@ -188,24 +195,23 @@ function Invoke-GuiPsComplete() {
                     }
                     else {
                         ## e.g. apt install[SPACE]
-                        else {
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
-                        }
+                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
                     }
                 }
             }
             Enter {
                 ## ex scp host:/home/user/
                 if ($colonIndex -ne -1) {
-                    $commandHost = "$buffer".Substring(0,$colonIndex)
+                    $commandHost = "$buffer".Substring(0, $colonIndex)
                     $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
                     [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
                         0, 
                         "$buffer".Length, 
                         $fullCompletionText
-                        )
-                }else {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                    )
+                }
+                else {
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $quoted)
                 }
             }
             Escape {
@@ -213,16 +219,27 @@ function Invoke-GuiPsComplete() {
             }
             ## if there is a single option
             None {
-                [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
-                if ($replacement.ResultType -eq 'Command') {
-                    HandleCompletionCommand $replacement.CompletionText
+                if ($colonIndex -ne -1) {
+                    $commandHost = "$buffer".Substring(0, $colonIndex)
+                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+                        0, 
+                        "$buffer".Length, 
+                        $fullCompletionText
+                    )
                 }
-                elseif ($replacement.ResultType -eq 'ProviderContainer') {
-                    if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                else {
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+                    if ($replacement.ResultType -eq 'Command') {
+                        HandleCompletionCommand $replacement.CompletionText
                     }
-                    else {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                    elseif ($replacement.ResultType -eq 'ProviderContainer') {
+                        if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                        }
+                        else {
+                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                        }
                     }
                 }
             }
@@ -250,9 +267,3 @@ function Install-PsComplete() {
 }
 
 Install-PsComplete
-
-# Import-Module '/home/ian/f/publicrepos/aciq.pscomplete/src/bin/Debug/net6.0/aciq.pscomplete.dll' -DisableNameChecking
-# Import-Module '/home/ian/f/publicrepos/aciq.pscomplete/src/bin/Release/net6.0/aciq.pscomplete.dll' -DisableNameChecking
-
-# Set-PSReadLineKeyHandler -Chord 'Tab' -ScriptBlock { Invoke-GuiPsComplete }
-# Set-PSReadLineKeyHandler -Chord 'Ctrl+q' -ScriptBlock { Invoke-GuiPsComplete }
