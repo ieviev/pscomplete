@@ -83,7 +83,7 @@ function HandleCompletionCommand($commandname) {
                 if ($PsCompleteSettings.ExpandByArgumentType) {
                     switch ($p1Type.FullName) {
                                         ("System.String[]") { 
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert("''")
+                            # [Microsoft.PowerShell.PSConsoleReadLine]::Insert("''")
                             $cmdlen = "$replacement.CompletionText".Length + 1
                             [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cmdlen)
                         }
@@ -113,8 +113,8 @@ function AnsiClearScreen() {
 }
 
 function quoteIfNeeded( [string] $str) {
-    if ($str.Contains(',')) { 
-        return "`'$str`'";
+    if ($str.Contains(',') -and ( -not $str.Contains('.'))) { 
+        return $str;
     } 
     else { 
         return $str;

@@ -17,7 +17,6 @@ Additionally:
 - Add `Import-Module -Name PsComplete` to your profile via `Invoke-Item $PROFILE` to have it permanently on
 - completion can also be invoked programmatically with `Invoke-GuiPsComplete`
 
-
 ## features
 
 - Search with regex (`^<start>.*<filter>`)
