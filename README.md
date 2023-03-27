@@ -21,7 +21,7 @@ Additionally:
 ## features
 
 - Search with regex (`^<start>.*<filter>`)
-- Performant up to 100 000+ completions
+- Performs well up to 100 000+ completions
 - Auto-expands to positional parameters (ex. Get-Process (pos.0))
 - Press Tab again to immediately select the next parameter (useful for switches)
 - Press Enter to finish command
@@ -46,8 +46,7 @@ $PsCompleteSettings.AutoExpandCommands = @(
 
 ## one caveat because of missing features in Powershell Core:
 
-- Only works when there is enough free space under the current command (use clear)
-- UPDATE: if you're tired of `Window too small to draw completion list, please clear the buffer` messages it is now possible to force clear screen via ANSI in configuration 
+- Only works when there is enough free space under the current command (use clear or ForceClearBeforeUse)
 
 
 <!-- 
