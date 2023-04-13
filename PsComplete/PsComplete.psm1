@@ -1,7 +1,7 @@
 # immediately chain into the next argument if its a switch
 # or stop if input is expected
 using namespace System.Management.Automation
-function HandleReplacementArgChain($replacement) {
+function CompletePsArgument($replacement) {
     if ($replacement.ResultType -eq 'ProviderContainer') {
     }
     switch ($replacement.ArgumentType) {
@@ -113,7 +113,7 @@ function AnsiClearScreen() {
 }
 
 function quoteIfNeeded( [string] $str) {
-    if ($str.Contains(',') -and ( -not $str.Contains('.'))) { 
+    if ($str.Contains(' ') -and ( -not $str.Contains('.'))) { 
         return $str;
     } 
     else { 
@@ -154,10 +154,7 @@ function Invoke-GuiPsComplete() {
     # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample.json
 
     if ($replacement) {
-        if ($useAnsiWorkaround ) {
-            Write-Host -NoNewline "`e[2J" # cursor scroll up 5 lines
-            Write-Host -NoNewline "`e[H" # cursor scroll up 5 lines
-        }
+        if ($useAnsiWorkaround ) { AnsiClearScreen }
         $quoted = quoteIfNeeded($replacement.CompletionText);
 
         switch ($replacement.ExitKey) {
@@ -183,15 +180,23 @@ function Invoke-GuiPsComplete() {
                         HandleCompletionCommand $replacement.CompletionText
                     }
                     elseif ($replacement.ResultType -eq 'ParameterName') {
-                        HandleReplacementArgChain $replacement
+                        CompletePsArgument $replacement
                     }
                     elseif ($replacement.ResultType -eq 'ProviderContainer') {
-                        if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                        if ("$quoted".Contains(" ")) {
+                            # if item contains spaces to nothing for now.
+                            # 'asd fgh'/ is not valid
                         }
                         else {
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                            
+                            if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                            }
+                            else {
+                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                            }
                         }
+                        
                     }
                     else {
                         ## e.g. apt install[SPACE]
