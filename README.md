@@ -1,10 +1,6 @@
 # PsComplete
 cross-platform custom powershell autocomplete
 
-rewritten from scratch to make it compatible with mac/linux
-
-
-
 ## demo  
 
 https://user-images.githubusercontent.com/36763595/231883963-51af0857-ef83-47f1-9aca-f011304c1b04.mp4
@@ -14,13 +10,13 @@ https://user-images.githubusercontent.com/36763595/231883963-51af0857-ef83-47f1-
 
 (available at https://www.powershellgallery.com/packages/PsComplete)
 
-- `Install-Module -Name PsComplete`
-- `Import-Module -Name PsComplete`
+- `install-module -name pscomplete`
+- `import-module -name pscomplete`
 - After that Tab is bound to the expander for this session
 
 Additionally:
-- Add `Import-Module -Name PsComplete` to your profile via `Invoke-Item $PROFILE` to have it permanently on
-- completion can also be invoked programmatically with `Invoke-GuiPsComplete`
+- Add `import-module -name pscomplete` to your profile (ex. `nano $PROFILE` / `notepad $PROFILE`) to have it permanently on
+- completion can also be invoked programmatically with `invoke-guipscomplete`
 
 ## features
 
