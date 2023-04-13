@@ -106,13 +106,21 @@ module DisplayState =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let tabPressed (state:DisplayState) =
         match state.FilteredCache.Count with 
-        | 1 -> None 
+        | 0 | 1 -> None 
         | x when x > 100 -> Some state // heuristic. don't want to turn 100000 results to a linked list
         | _ -> 
             let filterContent = state.FilterText.TrimStart('^')
             let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
             if shouldExpand then
-                let longestCommonPrefix = state.FilteredCache |> Seq.map (fun v -> v.CompletionText) |> Helpers.Seq.longestCommonPrefix
+                let longestCommonPrefix = 
+                    state.FilteredCache 
+                    |> Seq.map (fun v -> v.CompletionText) 
+                    |> Helpers.Seq.longestCommonPrefix
+                    |> (fun v -> 
+                        match v.StartsWith("./") || v.StartsWith(".\\") with 
+                        | true -> v.Substring(2)
+                        | false -> v
+                    )
                 match state.FilterText.StartsWith('^') with
                 | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> Some
                 | false -> updateWithFilterText longestCommonPrefix state |> Some
