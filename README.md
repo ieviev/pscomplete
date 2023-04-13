@@ -46,7 +46,7 @@ $PsCompleteSettings.AutoExpandCommands = @(
 
 ## one caveat because of missing features in Powershell Core:
 
-- pwsh can not access the preceding buffer directly, so the only way to
+- pwsh can not access the preceding buffer directly, so the only way to make space for completions is to clear the entire buffer
 
 #### some more trivia about the implementations
 
