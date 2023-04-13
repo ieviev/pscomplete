@@ -24,10 +24,8 @@ Additionally:
 ## features
 
 - Performs well up to 100 000+ completions
-- Press Tab again to immediately select the next parameter (useful for switches)
-- Press Enter to finish command
-- Optionally auto-expands to command parameters (ex. Get-Process (pos.0)) , see config
-
+- Press Tab to expand / select if only 1 remains
+- Press Enter to select highlighted command
 
 ## configuration 
 
