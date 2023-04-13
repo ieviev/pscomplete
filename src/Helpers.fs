@@ -1,4 +1,4 @@
-module aciq.pscomplete.Helpers
+module pscomplete.Helpers
 
 open System
 open System.Management.Automation
@@ -96,3 +96,24 @@ let readkeyopts =
 // let saveDebugState state =
 //    state |> JsonSerializer.Serialize
 //    |> (fun f -> System.IO.File.WriteAllText(@"C:\Users\kast\dev\s.json",f))
+
+module String =
+    open System.Text
+    let rec longestCommonPrefix s1 s2 =
+        let rec loop (acc:StringBuilder) s1 s2 =
+            match s1, s2 with
+            | "", _ -> acc
+            | _, "" -> acc
+            | _ ->
+                if s1.[0] = s2.[0] then
+                    loop (acc.Append s1.[0]) (s1.Substring(1)) (s2.Substring(1))
+                else
+                    acc
+        (loop (StringBuilder()) s1 s2).ToString()
+        
+module Seq =
+    let longestCommonPrefix (seq: seq<string>) =
+        seq |> Seq.reduce (fun acc v -> 
+            String.longestCommonPrefix acc v
+        )
+        

@@ -12,10 +12,10 @@
     RootModule           = 'PsComplete.psm1'
 
     # Version number of this module.
-    ModuleVersion        = '0.0.15'
+    ModuleVersion        = '0.0.16'
 
     # Supported PSEditions
-    CompatiblePSEditions = ('Desktop','Core')
+    CompatiblePSEditions = ('Core')
 
     # ID used to uniquely identify this module
     GUID                 = 'b43130ff-5523-404a-a493-202ca9837eef'
@@ -33,7 +33,7 @@
     Description = 'Cross-platform custom powershell autocomplete / tab expansion'
 
     # Minimum version of the PowerShell engine required by this module
-    PowerShellVersion = '5.1'
+    PowerShellVersion = '7.0'
 
     # Name of the PowerShell host required by this module
     # PowerShellHostName = ''
@@ -55,7 +55,7 @@
 
     # Assemblies that must be loaded prior to importing this module
     # RequiredAssemblies = @()
-    # 'FSharp.Core','aciq.pscomplete'
+    # 'FSharp.Core','pscomplete'
 
     # Script files (.ps1) that are run in the caller's environment prior to importing this module.
     # ScriptsToProcess = @()

@@ -1,4 +1,4 @@
-﻿module aciq.pscomplete.Library
+﻿module pscomplete.Library
 
 open System.Management.Automation
 open System.Runtime.CompilerServices
@@ -8,9 +8,9 @@ open System.Management.Automation.Host
 open System
 open System.Text.RegularExpressions
 open System.Linq
-open aciq.pscomplete.Helpers
+open pscomplete.Helpers
 open System.Collections.Generic
-open aciq.pscomplete.Render
+open pscomplete.Render
 
 
 [<CLIMutable>]
@@ -96,8 +96,10 @@ type ConfCmdlet() =
                     yield bottomLine
                 |]
 
-            content
-            |> Array.iteri (fun i -> x.WriteBufferLine (i) x.Buffer)
+            for i = 0 to content.Length - 1 do
+                x.WriteBufferLine (i) x.Buffer content[i]
+            // content
+            // |> Array.iteri (fun i -> x.WriteBufferLine (i) x.Buffer)
 
             x.Host.UI.RawUI.SetBufferContents(x.FrameTopLeft, x.Buffer)
 

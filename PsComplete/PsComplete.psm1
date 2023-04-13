@@ -55,7 +55,7 @@ function GetPositionParameters {
 New-Variable -Scope Global -Name PsCompleteSettings -Value ([PSCustomObject]@{
         AutoExpandCommands   = @("")
         ExpandByArgumentType = $false
-        ForceClearBeforeUse  = $false
+        ForceClearBeforeUse  = $true
     })
 
 
@@ -151,7 +151,7 @@ function Invoke-GuiPsComplete() {
     $colonIndex = "$buffer".IndexOf(':');
 
     # debug
-    # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample.json
+    # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > "/mnt/ramdisk/logfile.json"
 
     if ($replacement) {
         if ($useAnsiWorkaround ) { AnsiClearScreen }
@@ -217,6 +217,24 @@ function Invoke-GuiPsComplete() {
                 }
                 else {
                     [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $quoted)
+                    if ($replacement.ResultType -eq 'ProviderContainer') {
+                        if ("$quoted".Contains(" ")) {
+                            # if item contains spaces to nothing for now.
+                            # 'asd fgh'/ is not valid
+                        }
+                        else {
+                            if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+                            }
+                            else {
+                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+                            }
+                        }
+                        
+                    }
+                    else {
+                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+                    }
                 }
             }
             Escape {
@@ -246,6 +264,9 @@ function Invoke-GuiPsComplete() {
                             [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
                         }
                     }
+                    else {
+                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+                    }
                 }
             }
         }
@@ -262,8 +283,8 @@ function Install-PsComplete() {
     if (!($loadedAssemblies.Contains('FSharp.Core'))) {
         Import-Module "$PSScriptRoot/FSharp.Core.dll"    
     }
-    if (!($loadedAssemblies.Contains('aciq.pscomplete'))) {
-        Import-Module "$PSScriptRoot/aciq.pscomplete.dll"   
+    if (!($loadedAssemblies.Contains('pscomplete'))) {
+        Import-Module "$PSScriptRoot/pscomplete.dll"   
     }
 
     Set-PSReadLineKeyHandler -Chord 'Tab' -ScriptBlock { 

@@ -1,11 +1,11 @@
-module aciq.pscomplete.Render
+module pscomplete.Render
 
 open System
 open System.Management.Automation
 open System.Management.Automation.Host
 open System.Threading
 open System.Threading.Tasks
-open aciq.pscomplete.Helpers
+open pscomplete.Helpers
 
 type ExitKey =
     | None = 0
@@ -39,12 +39,19 @@ type LoopArgs =
 let startLoop (args:LoopArgs) (beforeKey:DisplayState * LoopContext ->unit) =
     let rec loop (ctx:LoopContext) (state: DisplayState) =
         beforeKey(state,ctx)
-        
+
         let c = args.Ui.ReadKey(options = readkeyopts)
+
         match c.VirtualKeyCode |> enum<ConsoleKey> with
-        | ConsoleKey.Tab -> args.ExitCommand state ExitKey.Tab
+        | ConsoleKey.Tab -> 
+            let newStateOpt = (DisplayState.tabPressed state)
+            match newStateOpt with 
+            | None -> args.ExitCommand state ExitKey.Tab
+            | Some newState -> loop LoopContext.Input newState
+            
         | ConsoleKey.Enter -> args.ExitCommand state ExitKey.Enter
         | ConsoleKey.Escape -> args.ExitCommand state ExitKey.Escape
+        | ConsoleKey.C when c.ControlKeyState.HasFlag(ControlKeyStates.LeftCtrlPressed) -> args.ExitCommand state ExitKey.Escape
         | ConsoleKey.LeftArrow -> loop LoopContext.Arrow (DisplayState.arrowLeftInplace state)
         | ConsoleKey.RightArrow -> loop LoopContext.Arrow (DisplayState.arrowRightInplace state)
         | ConsoleKey.UpArrow -> loop LoopContext.Arrow (DisplayState.arrowUpInplace state)
@@ -55,10 +62,7 @@ let startLoop (args:LoopArgs) (beforeKey:DisplayState * LoopContext ->unit) =
         | ConsoleKey.Backspace -> loop LoopContext.Input (DisplayState.backspaceInplace state)
         | keycode ->
             match int keycode with
-            // shift ctrl alt
-            | 16
-            | 17
-            | 18 -> ()
+            | n when c.Character = '\u0000' ->loop LoopContext.Arrow (state) // ignore non-printable characters
             | _ -> loop LoopContext.Input (DisplayState.addFilterCharInplace c.Character state)
     
     loop LoopContext.Input args.InitState

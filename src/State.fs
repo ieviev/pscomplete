@@ -1,4 +1,4 @@
-namespace aciq.pscomplete
+namespace pscomplete
 
 open System.Management.Automation
 open System.Linq
@@ -49,17 +49,46 @@ module DisplayState =
     let filterCacheInPlace (state: DisplayState) =
         let temp = state.FilteredCache.ToArray()
         state.FilteredCache.Clear()
-        temp
-        |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
-        |> state.FilteredCache.AddRange
+        
+        if state.FilterText.StartsWith("^") then
+            let tail = state.FilterText.Substring(1)
+            for v in temp do
+                if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
+                then state.FilteredCache.Add(v)
+        else
+            for v in temp do
+                if v.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase) 
+                then state.FilteredCache.Add(v)
+
+        // temp
+        // |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
+        // |> state.FilteredCache.AddRange
+
         state
     let filterInPlace (state: DisplayState) =
         state.FilteredCache.Clear()
-        state.Content
-        |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
-        |> state.FilteredCache.AddRange
+
+        if state.FilterText.StartsWith("^") then
+            let tail = state.FilterText.Substring(1)
+            for v in state.Content do
+                if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
+                then state.FilteredCache.Add(v)
+        else
+            for v in state.Content do
+                if v.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase) 
+                then state.FilteredCache.Add(v)
+
+        // state.Content
+        // |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
+        // |> state.FilteredCache.AddRange
         state
      
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let updateWithFilterText (newFilter:string) (state:DisplayState) =
+        state.SelectedIndex <- 0
+        state.FilterText <- $"%s{newFilter}"
+        state
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowRightInplace (state:DisplayState) =
         state.TryGoDownBy(state.PageLength)
@@ -72,6 +101,25 @@ module DisplayState =
     let arrowLeftInplace (state:DisplayState) =
         state.TryGoUpBy(state.PageLength)
         state
+
+    /// returns none if should exit
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let tabPressed (state:DisplayState) =
+        match state.FilteredCache.Count with 
+        | 1 -> None 
+        | x when x > 100 -> Some state // heuristic. don't want to turn 100000 results to a linked list
+        | _ -> 
+            let filterContent = state.FilterText.TrimStart('^')
+            let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
+            if shouldExpand then
+                let longestCommonPrefix = state.FilteredCache |> Seq.map (fun v -> v.CompletionText) |> Helpers.Seq.longestCommonPrefix
+                match state.FilterText.StartsWith('^') with
+                | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> Some
+                | false -> updateWithFilterText longestCommonPrefix state |> Some
+            else
+                //do nothing
+                Some state
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowUpInplace (state:DisplayState) =
         state.TryGoUpBy(1)
@@ -87,4 +135,6 @@ module DisplayState =
         state.SelectedIndex <- 0
         state.FilterText <- $"%s{state.FilterText}%c{c}"
         state
+
+    
         
