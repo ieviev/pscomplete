@@ -7,7 +7,8 @@ rewritten from scratch to make it compatible with mac/linux
 
 ## demo  
 
-https://user-images.githubusercontent.com/36763595/201194825-270d5d32-793a-4f42-bb34-56abf2389836.mp4
+https://user-images.githubusercontent.com/36763595/231883963-51af0857-ef83-47f1-9aca-f011304c1b04.mp4
+
 
 ## installation
 
