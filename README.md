@@ -3,11 +3,15 @@ cross-platform custom powershell autocomplete
 
 rewritten from scratch to make it compatible with mac/linux
 
+
+
 ## demo  
 
 https://user-images.githubusercontent.com/36763595/201194825-270d5d32-793a-4f42-bb34-56abf2389836.mp4
 
 ## installation
+
+(available at https://www.powershellgallery.com/packages/PsComplete)
 
 - `Install-Module -Name PsComplete`
 - `Import-Module -Name PsComplete`
