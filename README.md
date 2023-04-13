@@ -28,22 +28,6 @@ Additionally:
 - Press Tab to expand / select if only 1 remains
 - Press Enter to select highlighted command
 
-## configuration 
-
-PsComplete also has some settings you can override in your profile
-
-#### ForceClearBeforeUse - clears the buffer if not enough space - may erase some preceding buffer space
-```
-$PsCompleteSettings.ForceClearBeforeUse = $true;
-```
-#### AutoExpandCommands - immediately presses tab again after finishing one of these commands
-```
-$PsCompleteSettings.AutoExpandCommands = @(
-    "Get-Process"
-    "Get-Culture"
-)
-```
-
 ## one caveat because of missing features in Powershell Core:
 
 - pwsh can not access the preceding buffer directly, so the only way to make space for completions is to clear the entire buffer
