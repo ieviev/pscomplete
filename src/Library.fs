@@ -152,6 +152,7 @@ type ConfCmdlet() =
             | Win -> 0 |> enum<ConsoleColor>
             | Unix -> -1 |> enum<ConsoleColor>
         x.Host.UI.RawUI.BackgroundColor <- defaultColor
+
         buffer
         |> Array2D.iteri (fun x y _ -> buffer[x, y].Character <- ' ')
         x.Host.UI.RawUI.SetBufferContents(x.FrameTopLeft, buffer)

@@ -15,24 +15,6 @@ type DisplayState =
         PageLength: int
     }
     with
-        // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        // member this.RegexFilter() =
-        //     let cmd = this.CommandString.Split(" ").Last()
-        //     match cmd with
-        //     | "" -> $".*{this.FilterText}"
-        //     // folders
-        //     | _ when cmd.EndsWith "\\" -> $".*{this.FilterText}"
-        //     | _ when cmd.EndsWith "/" -> $".*{this.FilterText}" 
-        //     // various start symbols that break search
-        //     | _ when
-        //         let startSymbols = [|'$';'.';'\'';'"';'~'|]
-        //         startSymbols |> Array.exists cmd.StartsWith
-        //         -> $".*{this.FilterText}"
-        //     // in other cases search with regex
-        //     | _ ->
-        //         let start = cmd.TrimStart([| '-'; '.'; '[' |]) |> Regex.Escape
-        //         $"^{start}.*{this.FilterText}"
-        
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.TryGoUpBy (x:int) =
             if this.SelectedIndex - x >= 0 then
@@ -43,14 +25,20 @@ type DisplayState =
             if this.SelectedIndex + x < this.FilteredCache.Count then
                 this.SelectedIndex <- this.SelectedIndex + x
                 
-        
+
+
+type StateResult = 
+    | DoNothing of DisplayState
+    | InputChanged of DisplayState
+    | Exit of DisplayState 
+
 module DisplayState =
     open System
     let filterCacheInPlace (state: DisplayState) =
         let temp = state.FilteredCache.ToArray()
         state.FilteredCache.Clear()
         
-        if state.FilterText.StartsWith("^") then
+        if state.FilterText.StartsWith("^",StringComparison.InvariantCultureIgnoreCase) then
             let tail = state.FilterText.Substring(1)
             for v in temp do
                 if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
@@ -68,7 +56,7 @@ module DisplayState =
     let filterInPlace (state: DisplayState) =
         state.FilteredCache.Clear()
 
-        if state.FilterText.StartsWith("^") then
+        if state.FilterText.StartsWith("^",StringComparison.InvariantCultureIgnoreCase) then
             let tail = state.FilterText.Substring(1)
             for v in state.Content do
                 if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
@@ -104,10 +92,10 @@ module DisplayState =
 
     /// returns none if should exit
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    let tabPressed (state:DisplayState) =
+    let tabPressed (state:DisplayState) : StateResult =
         match state.FilteredCache.Count with 
-        | 0 | 1 -> None 
-        | x when x > 100 -> Some state // heuristic. don't want to turn 100000 results to a linked list
+        | 0 | 1 -> StateResult.Exit state 
+        | x when x > 100 -> DoNothing state // heuristic. don't want to turn 100000 results to a linked list
         | _ -> 
             let filterContent = state.FilterText.TrimStart('^')
             let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
@@ -117,16 +105,20 @@ module DisplayState =
                     |> Seq.map (fun v -> v.CompletionText) 
                     |> Helpers.Seq.longestCommonPrefix
                     |> (fun v -> 
-                        match v.StartsWith("./") || v.StartsWith(".\\") with 
-                        | true -> v.Substring(2)
-                        | false -> v
+                        let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
+                        v.TrimStart(invalidChars)
                     )
-                match state.FilterText.StartsWith('^') with
-                | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> Some
-                | false -> updateWithFilterText longestCommonPrefix state |> Some
+                
+                match longestCommonPrefix.Length = filterContent.Length with
+                | true -> StateResult.DoNothing state
+                | _ -> 
+
+                match state.FilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
+                | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> InputChanged
+                | false -> updateWithFilterText longestCommonPrefix state |> InputChanged
             else
                 //do nothing
-                Some state
+                DoNothing state
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowUpInplace (state:DisplayState) =

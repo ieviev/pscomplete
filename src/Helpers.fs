@@ -105,7 +105,7 @@ module String =
             | "", _ -> acc
             | _, "" -> acc
             | _ ->
-                if s1.[0] = s2.[0] then
+                if Char.ToLowerInvariant s1.[0] = Char.ToLowerInvariant s2.[0] then
                     loop (acc.Append s1.[0]) (s1.Substring(1)) (s2.Substring(1))
                 else
                     acc
