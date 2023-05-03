@@ -135,9 +135,8 @@ function Invoke-GuiPsComplete() {
 
     $useAnsiWorkaround = $false
     ## create space for completions via ansi escape sequence
-    # $posx = $Host.UI.RawUI.CursorPosition.X - 1
     $frameh = $Host.UI.RawUI.WindowSize.Height - $Host.UI.RawUI.CursorPosition.Y - 1
-    if ($frameh -lt 3 -and $PsCompleteSettings.ForceClearBeforeUse) {
+    if ($frameh -lt 6 -and $PsCompleteSettings.ForceClearBeforeUse) {
         AnsiClearScreen;
         $useAnsiWorkaround = $true;
     }
@@ -146,13 +145,14 @@ function Invoke-GuiPsComplete() {
     Invoke-PsComplete `
         -Content $completion.CompletionMatches `
         -CommandParameter "$buffer" `
-
+    
     ## for remote host commands to work correctly
     $colonIndex = "$buffer".IndexOf(':');
     $lastSpaceIndex = "$buffer".LastIndexOf(' ');
     if ($colonIndex -lt $lastSpaceIndex) {
         $colonIndex = -1;
     }
+
 
     # debug
     # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > "/mnt/ramdisk/logfile.json"
