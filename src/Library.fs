@@ -49,7 +49,7 @@ type ConfCmdlet() =
 
     member x.DrawEmptyFilter (state: DisplayState) (buffer: BufferCell [,]) =
         let top =
-            Graphics.boxTop 5 $"{x.CommandParameter}[{state.FilterText}]"
+            Graphics.boxTop 5 $"{x.CommandParameter}[{state.RawFilterText}]"
         x.WriteBufferLine 0 buffer top
 
     member x.UpdateState(state: DisplayState) =
@@ -83,7 +83,7 @@ type ConfCmdlet() =
             let currSelectedText = completions[pageSelIndex]
 
             let topLine =
-                Graphics.boxTop longest.Length $"{x.CommandParameter}[{state.FilterText}]"
+                Graphics.boxTop longest.Length $"{x.CommandParameter}[{state.RawFilterText}]"
 
             let bottomLine =
                 Graphics.boxBottom longest.Length $"{state.SelectedIndex + 1} of {state.FilteredCache.Count}"
@@ -222,7 +222,7 @@ type ConfCmdlet() =
                 let initState =
                     {
                         CommandString = this.CommandParameter
-                        FilterText = ""
+                        RawFilterText = ""
                         SelectedIndex = 0
                         Content = this.Content
                         FilteredCache = ResizeArray(this.Content)

@@ -8,13 +8,16 @@ open System.Text.RegularExpressions
 type DisplayState =
     {
         CommandString: string
-        mutable FilterText: string
+        mutable RawFilterText: string
         mutable SelectedIndex: int
         Content: CompletionResult ResizeArray
         FilteredCache: CompletionResult ResizeArray
         PageLength: int
     }
     with
+        member this.GetFilters() = 
+            this.RawFilterText.TrimStart('^').Split(' ')
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.TryGoUpBy (x:int) =
             if this.SelectedIndex - x >= 0 then
@@ -34,47 +37,47 @@ type StateResult =
 
 module DisplayState =
     open System
-    let filterCacheInPlace (state: DisplayState) =
-        let temp = state.FilteredCache.ToArray()
+    open System.Collections.Generic
+
+    let inline filterResizeArrayInline (state:DisplayState) (source:ICollection<CompletionResult>) : unit =
+        let temp = source
         state.FilteredCache.Clear()
-        
-        if state.FilterText.StartsWith("^",StringComparison.InvariantCultureIgnoreCase) then
-            let tail = state.FilterText.Substring(1)
+        let filters = state.GetFilters()
+        match state.RawFilterText with
+        | v when v.StartsWith '^' -> 
             for v in temp do
-                if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
-                then state.FilteredCache.Add(v)
-        else
+                if 
+                    Array.forall 
+                        (fun filter -> 
+                            v.ListItemText.StartsWith(
+                                filter,StringComparison.OrdinalIgnoreCase)) filters
+                then 
+                    state.FilteredCache.Add(v)
+                    
+        | _ -> 
             for v in temp do
-                if v.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase) 
-                then state.FilteredCache.Add(v)
-
-        // temp
-        // |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
-        // |> state.FilteredCache.AddRange
-
+                if 
+                    Array.forall 
+                        (fun (filter:string) -> 
+                            v.ListItemText.Contains(
+                                filter,StringComparison.OrdinalIgnoreCase)) filters
+                then 
+                    state.FilteredCache.Add(v)
+    let filterCacheInPlace (state: DisplayState) =
+        let source = state.FilteredCache.ToArray()
+        state.FilteredCache.Clear()
+        filterResizeArrayInline state source
         state
     let filterInPlace (state: DisplayState) =
+        let source = state.Content 
         state.FilteredCache.Clear()
-
-        if state.FilterText.StartsWith("^",StringComparison.InvariantCultureIgnoreCase) then
-            let tail = state.FilterText.Substring(1)
-            for v in state.Content do
-                if v.ListItemText.StartsWith(tail,StringComparison.OrdinalIgnoreCase) 
-                then state.FilteredCache.Add(v)
-        else
-            for v in state.Content do
-                if v.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase) 
-                then state.FilteredCache.Add(v)
-
-        // state.Content
-        // |> Seq.where (fun f -> f.ListItemText.Contains(state.FilterText,StringComparison.OrdinalIgnoreCase))
-        // |> state.FilteredCache.AddRange
+        filterResizeArrayInline state source
         state
      
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let updateWithFilterText (newFilter:string) (state:DisplayState) =
         state.SelectedIndex <- 0
-        state.FilterText <- $"%s{newFilter}"
+        state.RawFilterText <- $"%s{newFilter}"
         state
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -93,11 +96,12 @@ module DisplayState =
     /// returns none if should exit
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let tabPressed (state:DisplayState) : StateResult =
+        let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
         match state.FilteredCache.Count with 
         | 0 | 1 -> StateResult.Exit state 
-        | x when x > 100 -> DoNothing state // heuristic. don't want to turn 100000 results to a linked list
+        // | x when x > 100 -> DoNothing state // heuristic. don't want to turn 100000 results to a linked list
         | _ -> 
-            let filterContent = state.FilterText.TrimStart('^')
+            let filterContent = state.RawFilterText.TrimStart('^')
             let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
             if shouldExpand then
                 let longestCommonPrefix = 
@@ -105,7 +109,6 @@ module DisplayState =
                     |> Seq.map (fun v -> v.CompletionText) 
                     |> Helpers.Seq.longestCommonPrefix
                     |> (fun v -> 
-                        let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
                         v.TrimStart(invalidChars)
                     )
                 
@@ -113,12 +116,12 @@ module DisplayState =
                 | true -> StateResult.DoNothing state
                 | _ -> 
 
-                match state.FilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
+                match state.RawFilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
                 | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> InputChanged
                 | false -> updateWithFilterText longestCommonPrefix state |> InputChanged
             else
                 //do nothing
-                DoNothing state
+                StateResult.Exit state
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowUpInplace (state:DisplayState) =
@@ -127,13 +130,13 @@ module DisplayState =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let backspaceInplace (state:DisplayState) =
         state.SelectedIndex <- 0
-        state.FilterText <- state.FilterText[.. state.FilterText.Length - 2]
+        state.RawFilterText <- state.RawFilterText[.. state.RawFilterText.Length - 2]
         state
         
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let addFilterCharInplace (c:char) (state:DisplayState) =
         state.SelectedIndex <- 0
-        state.FilterText <- $"%s{state.FilterText}%c{c}"
+        state.RawFilterText <- $"%s{state.RawFilterText}%c{c}"
         state
 
     

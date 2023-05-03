@@ -147,8 +147,12 @@ function Invoke-GuiPsComplete() {
         -Content $completion.CompletionMatches `
         -CommandParameter "$buffer" `
 
-    ## $c[0]
+    ## for remote host commands to work correctly
     $colonIndex = "$buffer".IndexOf(':');
+    $lastSpaceIndex = "$buffer".LastIndexOf(' ');
+    if ($colonIndex -lt $lastSpaceIndex) {
+        $colonIndex = -1;
+    }
 
     # debug
     # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > "/mnt/ramdisk/logfile.json"
