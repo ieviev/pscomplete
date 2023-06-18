@@ -21,8 +21,8 @@ Additionally:
 ## features
 
 - Performs well up to 100 000+ completions
-- Press Tab to expand / select if only 1 remains
-- Press Enter to select highlighted command
+- Press Tab / Enter to pick the highlighted command
+- Currently does not support tab expansion 
 
 ## one caveat because of missing features in Powershell Core:
 

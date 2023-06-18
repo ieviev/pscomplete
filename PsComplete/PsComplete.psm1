@@ -56,6 +56,7 @@ New-Variable -Scope Global -Name PsCompleteSettings -Value ([PSCustomObject]@{
         AutoExpandCommands   = @("")
         ExpandByArgumentType = $false
         ForceClearBeforeUse  = $true
+        TopRightHUDEnabled  = $false
     })
 
 
@@ -64,7 +65,7 @@ function HandleCompletionCommand($commandname) {
     $command = Get-Command $commandname
     [System.Management.Automation.CommandTypes] $commandType = CommandGetType $command
     # debug
-    # @{r = $command; r2 = $commandname } | ConvertTo-Json -Depth 5 > $env:HOME/Desktop/sample2.json                    
+    # @{r = $command; r2 = $commandname } | ConvertTo-Json -Depth 5 > /mnt/ramdisk/temp.json                    
     switch ($commandType) {
         ([System.Management.Automation.CommandTypes]::Application) { 
             ## e.g. apt, cmd, /bin/sh - insert space after
@@ -127,7 +128,9 @@ function Invoke-GuiPsComplete() {
     $cursorPosition = 0
     [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$buffer, [ref]$cursorPosition)
     if ($buffer -eq '') { return }
-    $completion = TabExpansion2 $buffer $cursorPosition 
+    [System.Management.Automation.CommandCompletion] $completion = TabExpansion2 $buffer $cursorPosition 
+
+    # @{buffer = $buffer; cursorPos = $cursorPosition; matchindex = $completion.CurrentMatchIndex; count = $completion.CompletionMatches.Count } | ConvertTo-Json -Depth 5 > /mnt/ramdisk/temp.json
     
     if ($completion.CompletionMatches.Count -eq 0) {
         return
@@ -141,140 +144,140 @@ function Invoke-GuiPsComplete() {
         $useAnsiWorkaround = $true;
     }
     
-    $replacement = 
-    Invoke-PsComplete `
-        -Content $completion.CompletionMatches `
-        -CommandParameter "$buffer" `
+    $result = 
+        Invoke-NewPsComplete `
+            -Content $completion.CompletionMatches `
+            -CommandParameter "$buffer" 
     
+        
     ## for remote host commands to work correctly
-    $colonIndex = "$buffer".IndexOf(':');
-    $lastSpaceIndex = "$buffer".LastIndexOf(' ');
-    if ($colonIndex -lt $lastSpaceIndex) {
-        $colonIndex = -1;
-    }
+    # $colonIndex = "$buffer".IndexOf(':');
+    # $lastSpaceIndex = "$buffer".LastIndexOf(' ');
+    # if ($colonIndex -lt $lastSpaceIndex) {
+    #     $colonIndex = -1;
+    # }
 
+    # # debug
+    # # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > "/mnt/ramdisk/logfile.json"
 
-    # debug
-    # @{r = $replacement; r2 = $completion } | ConvertTo-Json -Depth 5 > "/mnt/ramdisk/logfile.json"
+    # if ($replacement) {
+    #     if ($useAnsiWorkaround ) { AnsiClearScreen }
+    #     $quoted = quoteIfNeeded($replacement.CompletionText);
 
-    if ($replacement) {
-        if ($useAnsiWorkaround ) { AnsiClearScreen }
-        $quoted = quoteIfNeeded($replacement.CompletionText);
+    #     switch ($replacement.ExitKey) {
+    #         Tab {
+    #             ## ex scp host:/home/user/
+    #             if ($colonIndex -ne -1) {
+    #                 $commandHost = "$buffer".Substring(0, $colonIndex)
+    #                 $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+    #                     0, 
+    #                     "$buffer".Length, 
+    #                     $fullCompletionText
+    #                 )
+    #             }
+    #             else {
 
-        switch ($replacement.ExitKey) {
-            Tab {
-                ## ex scp host:/home/user/
-                if ($colonIndex -ne -1) {
-                    $commandHost = "$buffer".Substring(0, $colonIndex)
-                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
-                        0, 
-                        "$buffer".Length, 
-                        $fullCompletionText
-                    )
-                }
-                else {
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+    #                     $completion.ReplacementIndex, 
+    #                     $completion.ReplacementLength, 
+    #                     $quoted)
 
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
-                        $completion.ReplacementIndex, 
-                        $completion.ReplacementLength, 
-                        $quoted)
-
-                    if ($replacement.ResultType -eq 'Command') {
-                        HandleCompletionCommand $replacement.CompletionText
-                    }
-                    elseif ($replacement.ResultType -eq 'ParameterName') {
-                        CompletePsArgument $replacement
-                    }
-                    elseif ($replacement.ResultType -eq 'ProviderContainer') {
-                        if ("$quoted".Contains(" ")) {
-                            # if item contains spaces to nothing for now.
-                            # 'asd fgh'/ is not valid
-                        }
-                        else {
+    #                 if ($replacement.ResultType -eq 'Command') {
+    #                     HandleCompletionCommand $replacement.CompletionText
+    #                 }
+    #                 elseif ($replacement.ResultType -eq 'ParameterName') {
+    #                     CompletePsArgument $replacement
+    #                 }
+    #                 elseif ($replacement.ResultType -eq 'ProviderContainer') {
+    #                     if ("$quoted".Contains(" ")) {
+    #                         # if item contains spaces to nothing for now.
+    #                         # 'asd fgh'/ is not valid
+    #                     }
+    #                     else {
                             
-                            if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
-                            }
-                            else {
-                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
-                            }
-                        }
+    #                         if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+    #                             [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+    #                         }
+    #                         else {
+    #                             [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+    #                         }
+    #                     }
                         
-                    }
-                    else {
-                        ## e.g. apt install[SPACE]
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
-                    }
-                }
-            }
-            Enter {
-                ## ex scp host:/home/user/
-                if ($colonIndex -ne -1) {
-                    $commandHost = "$buffer".Substring(0, $colonIndex)
-                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
-                        0, 
-                        "$buffer".Length, 
-                        $fullCompletionText
-                    )
-                }
-                else {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $quoted)
-                    if ($replacement.ResultType -eq 'ProviderContainer') {
-                        if ("$quoted".Contains(" ")) {
-                            # if item contains spaces to nothing for now.
-                            # 'asd fgh'/ is not valid
-                        }
-                        else {
-                            if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
-                            }
-                            else {
-                                [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
-                            }
-                        }
+    #                 }
+    #                 else {
+    #                     ## e.g. apt install[SPACE]
+    #                     [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+    #                 }
+    #             }
+    #         }
+    #         Enter {
+    #             ## ex scp host:/home/user/
+    #             if ($colonIndex -ne -1) {
+    #                 $commandHost = "$buffer".Substring(0, $colonIndex)
+    #                 $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+    #                     0, 
+    #                     "$buffer".Length, 
+    #                     $fullCompletionText
+    #                 )
+    #             }
+    #             else {
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $quoted)
+    #                 if ($replacement.ResultType -eq 'ProviderContainer') {
+    #                     if ("$quoted".Contains(" ")) {
+    #                         # if item contains spaces to nothing for now.
+    #                         # 'asd fgh'/ is not valid
+    #                     }
+    #                     else {
+    #                         if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+    #                             [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+    #                         }
+    #                         else {
+    #                             [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+    #                         }
+    #                     }
                         
-                    }
-                    else {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
-                    }
-                }
-            }
-            Escape {
-                [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursorPosition);
-            }
-            ## if there is a single option
-            None {
-                if ($colonIndex -ne -1) {
-                    $commandHost = "$buffer".Substring(0, $colonIndex)
-                    $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
-                        0, 
-                        "$buffer".Length, 
-                        $fullCompletionText
-                    )
-                }
-                else {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
-                    if ($replacement.ResultType -eq 'Command') {
-                        HandleCompletionCommand $replacement.CompletionText
-                    }
-                    elseif ($replacement.ResultType -eq 'ProviderContainer') {
-                        if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
-                        }
-                        else {
-                            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
-                        }
-                    }
-                    else {
-                        [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
-                    }
-                }
-            }
-        }
-    }
+    #                 }
+    #                 else {
+    #                     [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+    #                 }
+    #             }
+    #         }
+    #         Escape {
+    #             [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursorPosition);
+    #         }
+    #         ## if there is a single option
+    #         None {
+    #             if ($colonIndex -ne -1) {
+    #                 $commandHost = "$buffer".Substring(0, $colonIndex)
+    #                 $fullCompletionText = "$($commandHost):$($replacement.CompletionText)"
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace(
+    #                     0, 
+    #                     "$buffer".Length, 
+    #                     $fullCompletionText
+    #                 )
+    #             }
+    #             else {
+    #                 [Microsoft.PowerShell.PSConsoleReadLine]::Replace($completion.ReplacementIndex, $completion.ReplacementLength, $replacement.CompletionText)
+    #                 if ($replacement.ResultType -eq 'Command') {
+    #                     HandleCompletionCommand $replacement.CompletionText
+    #                 }
+    #                 elseif ($replacement.ResultType -eq 'ProviderContainer') {
+    #                     if ([System.Environment]::OSVersion.Platform -eq 'Unix') {
+    #                         [Microsoft.PowerShell.PSConsoleReadLine]::Insert('/');
+    #                     }
+    #                     else {
+    #                         [Microsoft.PowerShell.PSConsoleReadLine]::Insert('\');
+    #                     }
+    #                 }
+    #                 else {
+    #                     [Microsoft.PowerShell.PSConsoleReadLine]::Insert(' ');
+    #                 }
+    #             }
+    #         }
+    #     }
+    # }
 }
 
 
@@ -290,6 +293,7 @@ function Install-PsComplete() {
     if (!($loadedAssemblies.Contains('pscomplete'))) {
         Import-Module "$PSScriptRoot/pscomplete.dll"   
     }
+    # Microsoft.PowerShell.PSReadLine2
 
     Set-PSReadLineKeyHandler -Chord 'Tab' -ScriptBlock { 
         Invoke-GuiPsComplete;

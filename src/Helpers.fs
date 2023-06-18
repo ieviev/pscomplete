@@ -97,9 +97,13 @@ let readkeyopts =
 //    state |> JsonSerializer.Serialize
 //    |> (fun f -> System.IO.File.WriteAllText(@"C:\Users\kast\dev\s.json",f))
 
-module String =
-    open System.Text
-    let rec longestCommonPrefix s1 s2 =
+open System.Text
+open System
+open System.Runtime.InteropServices
+
+type String() =
+    
+    static member longestCommonPrefix s1 s2 =
         let rec loop (acc:StringBuilder) s1 s2 =
             match s1, s2 with
             | "", _ -> acc
@@ -111,9 +115,90 @@ module String =
                     acc
         (loop (StringBuilder()) s1 s2).ToString()
         
+    static member trimForHud(str:string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
+        let sb = StringBuilder()
+        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do 
+            match str[i] with 
+            | '\n' -> ()
+            | '\r' -> ()
+            | c -> sb.Append(c)  |> ignore
+        
+        let mutable pos = sb.Length - 1
+        let mutable count = 1
+        if Char.IsWhiteSpace(sb[pos]) then
+            while Char.IsWhiteSpace(sb[pos - 1]) do
+                count <- count + 1
+                pos <- pos - 1
+            sb.Remove(pos,count) |> ignore
+        sb.ToString()
+
+module File =
+
+    let getHumanReadableFileSize (i:int64) : string =
+        let mutable suffix = String.Empty
+        let mutable readable = 0L
+        if i < 0x400L then $"%i{i} B" else
+        match i with 
+        | _ when i >= 0x1000000000000000L -> suffix <- "EB"; readable <- i >>> 50
+        | _ when i >= 0x4000000000000L -> suffix <- "PB"; readable <- i >>> 40
+        | _ when i >= 0x10000000000L -> suffix <- "TB"; readable <- i >>> 30
+        | _ when i >= 0x40000000L -> suffix <- "GB"; readable <- i >>> 20
+        | _ when i >= 0x100000L -> suffix <- "MB"; readable <- i >>> 10
+        | _ when i >= 0x400L -> suffix <- "KB"; readable <- i 
+        | _ -> suffix <- "B"; readable <- 0 
+        readable <- (readable / 1024L)
+        readable.ToString("0.### ") + suffix
+        
+
 module Seq =
     let longestCommonPrefix (seq: seq<string>) =
         seq |> Seq.reduce (fun acc v -> 
             String.longestCommonPrefix acc v
         )
         
+
+
+type PsCompleteSettings(cmdlet:PSCmdlet) =
+    let _settings : System.Management.Automation.PSObject = 
+        cmdlet.GetVariableValue("PsCompleteSettings") |> unbox
+    
+    member this.IsTopRightHudEnabled = 
+        lazy (unbox<bool>(_settings.Properties["TopRightHUDEnabled"].Value))
+
+
+
+open System.Management.Automation
+open System.Reflection
+
+module Runspace =
+    let private _runspace =
+        Runspaces.Runspace.DefaultRunspace
+
+    let private _runspace_doPath =
+        lazy
+            _runspace
+                .GetType()
+                .GetProperty("DoPath", BindingFlags.NonPublic ||| BindingFlags.Instance)
+
+    let getCurrentPath() =
+        let asd = _runspace_doPath.Value.GetValue(_runspace) :?> PathIntrinsics
+        asd.CurrentLocation.Path
+        
+
+[<AutoOpen>]
+module Globals =
+    let inline cwd() = Runspace.getCurrentPath()
+
+open System.Diagnostics
+type Process with
+    static member runAsync(pname:string,?pargs:string,?cwd:string) =
+        task {
+            use p = new Process(
+                StartInfo=ProcessStartInfo(fileName=pname,arguments=defaultArg pargs "",WorkingDirectory=defaultArg cwd "", RedirectStandardOutput=true))
+            p.Start() |> ignore
+            do! p.WaitForExitAsync()
+            return! p.StandardOutput.ReadToEndAsync()
+        }
+        
+        
+ 

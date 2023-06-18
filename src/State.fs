@@ -18,6 +18,11 @@ type DisplayState =
         member this.GetFilters() = 
             this.RawFilterText.TrimStart('^').Split(' ')
 
+        member this.GetLastWordOfCommand() = 
+            match this.CommandString.LastIndexOf(' ') with 
+            | -1 -> this.CommandString
+            | n -> this.CommandString.Substring(n + 1)
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.TryGoUpBy (x:int) =
             if this.SelectedIndex - x >= 0 then
@@ -96,32 +101,45 @@ module DisplayState =
     /// returns none if should exit
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let tabPressed (state:DisplayState) : StateResult =
+        // let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
         let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
         match state.FilteredCache.Count with 
         | 0 | 1 -> StateResult.Exit state 
-        // | x when x > 100 -> DoNothing state // heuristic. don't want to turn 100000 results to a linked list
         | _ -> 
-            let filterContent = state.RawFilterText.TrimStart('^')
-            let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
-            if shouldExpand then
-                let longestCommonPrefix = 
-                    state.FilteredCache 
-                    |> Seq.map (fun v -> v.CompletionText) 
-                    |> Helpers.Seq.longestCommonPrefix
-                    |> (fun v -> 
-                        v.TrimStart(invalidChars)
-                    )
+            // let filterContent = state.RawFilterText.TrimStart('^')
+            // let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
+            
+            // if shouldExpand then
+            //     let longestCommonPrefix = 
+            //         state.FilteredCache 
+            //         |> Seq.map (fun v -> v.CompletionText) 
+            //         |> Helpers.Seq.longestCommonPrefix
+            //         |> (fun v -> 
+            //             v.TrimStart(invalidChars)
+            //         )
                 
-                match longestCommonPrefix.Length = filterContent.Length with
-                | true -> StateResult.DoNothing state
-                | _ -> 
+            //     let longestCommonPrefix = 
+            //         if state.CommandString.EndsWith('-') 
+            //         then filterContent 
+            //         else longestCommonPrefix
 
-                match state.RawFilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
-                | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> InputChanged
-                | false -> updateWithFilterText longestCommonPrefix state |> InputChanged
-            else
+            //     let longestCommonPrefix = 
+            //         if state.RawFilterText.StartsWith('$') && state.RawFilterText.Contains(':')
+            //         then longestCommonPrefix.Substring(longestCommonPrefix.IndexOf(':'))
+            //         else longestCommonPrefix
+
+                
+
+            //     match longestCommonPrefix.Length = filterContent.Length with
+            //     | true -> StateResult.DoNothing state
+            //     | _ -> 
+
+            //     match state.RawFilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
+            //     | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> InputChanged
+            //     | false -> updateWithFilterText (longestCommonPrefix) state |> InputChanged
+            // else
                 //do nothing
-                StateResult.Exit state
+            StateResult.Exit state
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowUpInplace (state:DisplayState) =
