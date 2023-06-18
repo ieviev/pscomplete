@@ -13,7 +13,6 @@ type ExitKey =
     | Enter = 2
     | Escape = 3
 
-
 type LoopContext =
     | Arrow
     | Input

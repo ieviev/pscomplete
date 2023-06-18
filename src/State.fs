@@ -7,10 +7,10 @@ open System.Text.RegularExpressions
 
 type DisplayState =
     {
-        CommandString: string
+        BufferString: string
         mutable RawFilterText: string
         mutable SelectedIndex: int
-        Content: CompletionResult ResizeArray
+        Content: CompletionResult []
         FilteredCache: CompletionResult ResizeArray
         PageLength: int
     }
@@ -19,9 +19,9 @@ type DisplayState =
             this.RawFilterText.TrimStart('^').Split(' ')
 
         member this.GetLastWordOfCommand() = 
-            match this.CommandString.LastIndexOf(' ') with 
-            | -1 -> this.CommandString
-            | n -> this.CommandString.Substring(n + 1)
+            match this.BufferString.LastIndexOf(' ') with 
+            | -1 -> this.BufferString
+            | n -> this.BufferString.Substring(n + 1)
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.TryGoUpBy (x:int) =
@@ -33,8 +33,10 @@ type DisplayState =
             if this.SelectedIndex + x < this.FilteredCache.Count then
                 this.SelectedIndex <- this.SelectedIndex + x
                 
-
-
+        member this.SanitizedBufferString = 
+            lazy 
+                match this.BufferString.IndexOf("\n") with 
+                | -1 -> this.BufferString | n -> ""
 type StateResult = 
     | DoNothing of DisplayState
     | InputChanged of DisplayState

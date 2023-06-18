@@ -93,9 +93,6 @@ let readkeyopts =
     ||| ReadKeyOptions.IncludeKeyDown
 
 
-// let saveDebugState state =
-//    state |> JsonSerializer.Serialize
-//    |> (fun f -> System.IO.File.WriteAllText(@"C:\Users\kast\dev\s.json",f))
 
 open System.Text
 open System
@@ -132,6 +129,25 @@ type String() =
             sb.Remove(pos,count) |> ignore
         sb.ToString()
 
+    static member trimForBuffer(str:string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
+        let sb = StringBuilder()
+        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do 
+            match str[i] with 
+            | '\n' -> ()
+            | '\r' -> ()
+            | c -> sb.Append(c)  |> ignore
+        
+        let mutable pos = sb.Length - 1
+        let mutable count = 1
+        if Char.IsWhiteSpace(sb[pos]) then
+            while Char.IsWhiteSpace(sb[pos - 1]) do
+                count <- count + 1
+                pos <- pos - 1
+            sb.Remove(pos,count) |> ignore
+        while sb.Length < maxLength do
+            sb.Append ' ' |> ignore
+        sb
+
 module File =
 
     let getHumanReadableFileSize (i:int64) : string =
@@ -165,6 +181,8 @@ type PsCompleteSettings(cmdlet:PSCmdlet) =
     member this.IsTopRightHudEnabled = 
         lazy (unbox<bool>(_settings.Properties["TopRightHUDEnabled"].Value))
 
+    member this.PromptText = 
+        lazy (unbox<string>(_settings.Properties["PromptText"].Value))
 
 
 open System.Management.Automation
@@ -200,5 +218,42 @@ type Process with
             return! p.StandardOutput.ReadToEndAsync()
         }
         
+let logDebug(item) = 
+    IO.File.WriteAllText("/mnt/ramdisk/temp.json",JsonSerializer.Serialize(item,JsonSerializerOptions(WriteIndented = true)) ) 
+
+type ConsoleColor with 
+    static member Default = 
+        match System.OperatingSystem.IsWindows() with
+        | true -> 0 |> enum<ConsoleColor>
+        | false -> -1 |> enum<ConsoleColor>
+
+
+
+[<AutoOpen>]
+module Patterns =
+    // EndsWith ":" 
+    let (|EndsWith|_|) (p:string) (s:string) =  
+        if s.EndsWith(p, StringComparison.Ordinal)  
+        then Some()  
+        else None
         
- 
+        
+module Ast =
+    open System.Management.Automation
+    open System.Management.Automation.Language
+    let tryGetPipelineCommand(cmdlet:PSCmdlet, bufferString:string) =
+        let mutable tokens : Token[] = [||]
+        let mutable errors : ParseError[] = [||]
+        let scriptBlockAst = System.Management.Automation.Language.Parser.ParseInput(bufferString, &tokens, &errors)
+        let lastStatement = scriptBlockAst.EndBlock.Statements |> Seq.last
+        match lastStatement with
+        | :? PipelineAst as pipelineast ->
+            let lastPipelineElement = pipelineast.PipelineElements |> Seq.last
+            match lastPipelineElement with
+            | :? CommandAst as commandast ->
+                let commandName = commandast.GetCommandName()
+                let commandInfo = cmdlet.InvokeCommand.GetCommand(commandName, CommandTypes.All)
+                Some(commandInfo, commandast)
+            | _ -> None
+        | _ -> None
+    

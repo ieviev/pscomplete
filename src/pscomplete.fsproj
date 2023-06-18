@@ -11,11 +11,11 @@
     <CrossModuleOptimization>true</CrossModuleOptimization>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="UI.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="State.fs" />
-    <Compile Include="Complete.fs" />
     <Compile Include="Render.fs" />
+    <Compile Include="UI.fs" />
+    <Compile Include="Complete.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
   <ItemGroup>
