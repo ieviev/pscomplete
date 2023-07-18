@@ -89,7 +89,7 @@ type PsCompletion() =
 
 let readkeyopts =
     ReadKeyOptions.NoEcho
-    ||| ReadKeyOptions.AllowCtrlC
+    // ||| ReadKeyOptions.AllowCtrlC
     ||| ReadKeyOptions.IncludeKeyDown
 
 
@@ -219,7 +219,7 @@ type Process with
         }
         
 let logDebug(item) = 
-    IO.File.WriteAllText("/mnt/ramdisk/temp.json",JsonSerializer.Serialize(item,JsonSerializerOptions(WriteIndented = true)) ) 
+    IO.File.WriteAllText("/tmp/log.json",JsonSerializer.Serialize(item,JsonSerializerOptions(WriteIndented = true)) ) 
 
 type ConsoleColor with 
     static member Default = 
@@ -237,6 +237,15 @@ module Patterns =
         then Some()  
         else None
         
+    let (|StartsWith|_|) (p:string) (s:string) =  
+        if s.StartsWith(p, StringComparison.Ordinal)  
+        then Some()  
+        else None
+
+    let (|UnfinishedDotnetCommand|_|) (s:string) =  
+        if Regex.IsMatch(s,@"^\[[^\]]*$")
+        then Some()  
+        else None
         
 module Ast =
     open System.Management.Automation

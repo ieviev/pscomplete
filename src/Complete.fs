@@ -14,6 +14,21 @@ type ExitContext = {
     exitKey:ExitKey
 }
 
+let replaceRaw (ctx:ExitContext, completion:CompletionResult) = 
+
+    let start' = ctx.completion.ReplacementIndex
+    let end' = ctx.completion.ReplacementLength
+    let inline replace(s,e,t) = Microsoft.PowerShell.PSConsoleReadLine.Replace(s,e,t)
+    replace( start', end', completion.CompletionText )
+
+let replaceDefault (ctx:ExitContext, completion:CompletionResult) = 
+
+    let start' = ctx.completion.ReplacementIndex
+    let end' = ctx.completion.ReplacementLength
+    let inline replace(s,e,t) = Microsoft.PowerShell.PSConsoleReadLine.Replace(s,e,t)
+    match completion.ResultType with 
+    | CompletionResultType.ProviderContainer -> replace( start', end', completion.CompletionText + "/" )
+    | _ -> replace( start', end', completion.CompletionText + " " )
 
 let handleExit (ctx:ExitContext) =
     Microsoft.PowerShell.PSConsoleReadLine.ClearScreen()
@@ -25,31 +40,50 @@ let handleExit (ctx:ExitContext) =
     if ctx.displayState.SelectedIndex >= ctx.displayState.FilteredCache.Count then () else
     
     
-    let completionText = 
-        ctx.displayState.FilteredCache[ctx.displayState.SelectedIndex].CompletionText 
+    let completion: CompletionResult = 
+        ctx.displayState.FilteredCache[ctx.displayState.SelectedIndex]
+
+    let completionText = completion.CompletionText 
+    
     // logDebug({|
     //     lastWord = ctx.displayState.GetLastWordOfCommand()
     //     replacementIndex = ctx.completion.ReplacementIndex
     //     replacementLength = ctx.completion.ReplacementLength
+    //     resultType = completion.ResultType
     //     completionText = completionText
     //     bufferString = ctx.displayState.BufferString
     // |})
 
     match ctx.displayState.GetLastWordOfCommand() with 
-    | (EndsWith ":") as v -> 
+    | (EndsWith ":") as v when not(v.StartsWith("[")) -> 
         Microsoft.PowerShell.PSConsoleReadLine.Replace(
             ctx.completion.ReplacementIndex, 
             ctx.completion.ReplacementLength, 
             v + completionText 
         )
-    | _ -> 
+    | (UnfinishedDotnetCommand) as v -> 
+        match ctx.exitKey with 
+        | ExitKey.Enter -> replaceRaw(ctx,completion)
+        | _ -> 
+        let start' = ctx.completion.ReplacementIndex
+        let end' = ctx.completion.ReplacementLength
+        let inline replace(s,e,t) = Microsoft.PowerShell.PSConsoleReadLine.Replace(s,e,t)
+        replace( start', end', completion.CompletionText + "]::" )
+        
+    | (EndsWith ":") as v when completionText.EndsWith("(") -> 
+        let updated = 
+            CompletionResult(
+                completion.CompletionText + ")", 
+                completion.ListItemText, 
+                completion.ResultType, 
+                completion.ToolTip)
+        replaceRaw(ctx,updated)
+        Microsoft.PowerShell.PSConsoleReadLine.SetCursorPosition(
+            ctx.completion.ReplacementIndex + completionText.Length 
+        )
+    | _ -> replaceDefault(ctx,completion)
 
-    // default
-    Microsoft.PowerShell.PSConsoleReadLine.Replace(
-        ctx.completion.ReplacementIndex, 
-        ctx.completion.ReplacementLength, 
-        completionText + " "
-    )
+    
     
     
     

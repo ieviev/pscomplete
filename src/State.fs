@@ -81,27 +81,38 @@ module DisplayState =
         filterResizeArrayInline state source
         state
      
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let updateWithFilterText (newFilter:string) (state:DisplayState) =
         state.SelectedIndex <- 0
         state.RawFilterText <- $"%s{newFilter}"
         state
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowRightInplace (state:DisplayState) =
         state.TryGoDownBy(state.PageLength)
         state
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowDownInplace (state:DisplayState) =
         state.TryGoDownBy(1)
         state
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+
+
+    let pageStart (state:DisplayState) =
+        state.SelectedIndex <- 
+            min 
+                (state.FilteredCache.Count - 1) 
+                ((state.SelectedIndex / state.PageLength) * state.PageLength)
+        state
+
+    let pageEnd (state:DisplayState) =
+        state.SelectedIndex <- 
+            min 
+                (state.FilteredCache.Count - 1) 
+                ((state.SelectedIndex / state.PageLength) * state.PageLength + state.PageLength - 1)
+        state
+
     let arrowLeftInplace (state:DisplayState) =
         state.TryGoUpBy(state.PageLength)
         state
 
     /// returns none if should exit
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let tabPressed (state:DisplayState) : StateResult =
         // let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
         let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
@@ -143,17 +154,14 @@ module DisplayState =
                 //do nothing
             StateResult.Exit state
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let arrowUpInplace (state:DisplayState) =
         state.TryGoUpBy(1)
         state
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let backspaceInplace (state:DisplayState) =
         state.SelectedIndex <- 0
         state.RawFilterText <- state.RawFilterText[.. state.RawFilterText.Length - 2]
         state
         
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let addFilterCharInplace (c:char) (state:DisplayState) =
         state.SelectedIndex <- 0
         state.RawFilterText <- $"%s{state.RawFilterText}%c{c}"
