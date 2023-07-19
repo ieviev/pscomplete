@@ -85,6 +85,9 @@ type Renderer(host:Host) =
                     |]
                 | _ -> return [| "Folder" |]
             | CompletionResultType.Variable -> return [| "Variable" |]
+            | _ when result.ToolTip.StartsWith("$LIST") -> 
+                let lines = result.ToolTip.Split("\n")
+                return (lines[1..] |> Array.map (fun v -> String.trimForHud(v, maxLength)))
             | _ -> return [|$"%s{result.ResultType.ToString()}"|]
         }
 
@@ -156,10 +159,9 @@ type Renderer(host:Host) =
     member this.RenderTopRightHUD(state:DisplayState) =
         //display top right hud info, experimental
             if 
-                state.FilteredCache.Count > state.SelectedIndex 
+                host.Settings.IsTopRightHudEnabled.Value
+                && state.FilteredCache.Count > state.SelectedIndex 
                 && OperatingSystem.IsLinux() 
-                && host.Settings.IsTopRightHudEnabled.Value
-            
             then
                 let hudWidth = 25
                 let currentCommand = state.FilteredCache[state.SelectedIndex]

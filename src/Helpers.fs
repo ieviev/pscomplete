@@ -73,6 +73,7 @@ type PsCompletion() =
     /// tooltips enclosed in [] are displayed
     /// (usually contains argument type e.g [string array])
     static member toText(res: CompletionResult) =
+        if not (res.ToolTip.StartsWith("[")) then res.ListItemText else
         let typeinfo =
             res.ToolTip
             |> (fun f -> f.Replace("[]", " array"))
@@ -84,7 +85,6 @@ type PsCompletion() =
                     |> (fun f -> $": %i{f}")
                 else
                     "")
-
         $"{res.ListItemText} {typeinfo}"
 
 let readkeyopts =
@@ -119,17 +119,10 @@ type String() =
             | '\n' -> ()
             | '\r' -> ()
             | c -> sb.Append(c)  |> ignore
-        
-        let mutable pos = sb.Length - 1
-        let mutable count = 1
-        if Char.IsWhiteSpace(sb[pos]) then
-            while Char.IsWhiteSpace(sb[pos - 1]) do
-                count <- count + 1
-                pos <- pos - 1
-            sb.Remove(pos,count) |> ignore
-        sb.ToString()
+        String.Format($"{{0,{maxLength}}}",sb.ToString())
 
     static member trimForBuffer(str:string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
+        if String.IsNullOrEmpty(str) then StringBuilder(String.replicate maxLength " ") else
         let sb = StringBuilder()
         for i = 0 to (min (str.Length - 1) (maxLength - 1)) do 
             match str[i] with 
@@ -138,9 +131,9 @@ type String() =
             | c -> sb.Append(c)  |> ignore
         
         let mutable pos = sb.Length - 1
-        let mutable count = 1
+        let mutable count = 0
         if Char.IsWhiteSpace(sb[pos]) then
-            while Char.IsWhiteSpace(sb[pos - 1]) do
+            while pos > 0 && Char.IsWhiteSpace(sb[pos - 1]) do
                 count <- count + 1
                 pos <- pos - 1
             sb.Remove(pos,count) |> ignore
