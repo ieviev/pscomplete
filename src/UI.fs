@@ -47,8 +47,6 @@ module Buffer =
             buffer[lineNo, i].Character <- trimmed[i]
 
 
-
-
 type Renderer(host:Host) =
     
     let host = host
@@ -87,7 +85,8 @@ type Renderer(host:Host) =
             | CompletionResultType.Variable -> return [| "Variable" |]
             | _ when result.ToolTip.StartsWith("$LIST") -> 
                 let lines = result.ToolTip.Split("\n")
-                return (lines[1..] |> Array.map (fun v -> String.trimForHud(v, maxLength)))
+                // return (lines[1..] |> Array.map (fun v -> String.trimForHud(v, maxLength)))
+                return (lines[1..])
             | _ -> return [|$"%s{result.ResultType.ToString()}"|]
         }
 
@@ -143,13 +142,16 @@ type Renderer(host:Host) =
             )
         for i = 0 to lines.Length - 1 do
             let line = lines[i]
+            let line = line[0..(min (hudWidth - 1) line.Length)]
             Buffer.writeLine(&hudBuffer, 0, line)
             host.RawUI.SetBufferContents(
-                Coordinates(host.FrameWidth - hudWidth, host.FrameTopLeft.Y + i),
-                hudBuffer
+                Coordinates(
+                    x= host.FrameWidth - hudWidth + (hudWidth - line.Length), 
+                    y= host.FrameTopLeft.Y + i),
+                hudBuffer[*,0..line.Length - 1]
             )
         host.RawUI.SetBufferContents(
-            Coordinates(host.FrameWidth - hudWidth, host.FrameTopLeft.Y + lines.Length + 1),
+            Coordinates(host.FrameWidth - 1, host.FrameTopLeft.Y + lines.Length + 1),
             Array2D.create 1 1 (bufferCell ' ')
         )
         // host.RawUI.FlushInputBuffer()
