@@ -15,11 +15,11 @@ type DisplayState =
         PageLength: int
     }
     with
-        member this.GetFilters() = 
+        member this.GetFilters() =
             this.RawFilterText.TrimStart('^').Split(' ')
 
-        member this.GetLastWordOfCommand() = 
-            match this.BufferString.LastIndexOf(' ') with 
+        member this.GetLastWordOfCommand() =
+            match this.BufferString.LastIndexOf(' ') with
             | -1 -> this.BufferString
             | n -> this.BufferString.Substring(n + 1)
 
@@ -27,20 +27,26 @@ type DisplayState =
         member this.TryGoUpBy (x:int) =
             if this.SelectedIndex - x >= 0 then
                 this.SelectedIndex <- this.SelectedIndex - x
-                
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.TryGoDownBy (x:int) =
             if this.SelectedIndex + x < this.FilteredCache.Count then
                 this.SelectedIndex <- this.SelectedIndex + x
-                
-        member this.SanitizedBufferString = 
-            lazy 
-                match this.BufferString.IndexOf("\n") with 
+
+        member this.SanitizedBufferString =
+            lazy
+                match this.BufferString.IndexOf("\n") with
                 | -1 -> this.BufferString | n -> ""
-type StateResult = 
+
+        member this.FirstWordOfBufferString =
+            lazy
+                match this.BufferString.IndexOf(' ') with
+                | -1 -> this.BufferString
+                | n -> this.BufferString[..n - 1]
+type StateResult =
     | DoNothing of DisplayState
     | InputChanged of DisplayState
-    | Exit of DisplayState 
+    | Exit of DisplayState
 
 module DisplayState =
     open System
@@ -51,24 +57,24 @@ module DisplayState =
         state.FilteredCache.Clear()
         let filters = state.GetFilters()
         match state.RawFilterText with
-        | v when v.StartsWith '^' -> 
+        | v when v.StartsWith '^' ->
             for v in temp do
-                if 
-                    Array.forall 
-                        (fun filter -> 
+                if
+                    Array.forall
+                        (fun filter ->
                             v.ListItemText.StartsWith(
                                 filter,StringComparison.OrdinalIgnoreCase)) filters
-                then 
+                then
                     state.FilteredCache.Add(v)
-                    
-        | _ -> 
+
+        | _ ->
             for v in temp do
-                if 
-                    Array.forall 
-                        (fun (filter:string) -> 
+                if
+                    Array.forall
+                        (fun (filter:string) ->
                             v.ListItemText.Contains(
                                 filter,StringComparison.OrdinalIgnoreCase)) filters
-                then 
+                then
                     state.FilteredCache.Add(v)
     let filterCacheInPlace (state: DisplayState) =
         let source = state.FilteredCache.ToArray()
@@ -76,11 +82,11 @@ module DisplayState =
         filterResizeArrayInline state source
         state
     let filterInPlace (state: DisplayState) =
-        let source = state.Content 
+        let source = state.Content
         state.FilteredCache.Clear()
         filterResizeArrayInline state source
         state
-     
+
     let updateWithFilterText (newFilter:string) (state:DisplayState) =
         state.SelectedIndex <- 0
         state.RawFilterText <- $"%s{newFilter}"
@@ -95,16 +101,16 @@ module DisplayState =
 
 
     let pageStart (state:DisplayState) =
-        state.SelectedIndex <- 
-            min 
-                (state.FilteredCache.Count - 1) 
+        state.SelectedIndex <-
+            min
+                (state.FilteredCache.Count - 1)
                 ((state.SelectedIndex / state.PageLength) * state.PageLength)
         state
 
     let pageEnd (state:DisplayState) =
-        state.SelectedIndex <- 
-            min 
-                (state.FilteredCache.Count - 1) 
+        state.SelectedIndex <-
+            min
+                (state.FilteredCache.Count - 1)
                 ((state.SelectedIndex / state.PageLength) * state.PageLength + state.PageLength - 1)
         state
 
@@ -116,36 +122,36 @@ module DisplayState =
     let tabPressed (state:DisplayState) : StateResult =
         // let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
         let invalidChars = [|'\\';'/';'.';'-';'$';'~'|]
-        match state.FilteredCache.Count with 
-        | 0 | 1 -> StateResult.Exit state 
-        | _ -> 
+        match state.FilteredCache.Count with
+        | 0 | 1 -> StateResult.Exit state
+        | _ ->
             // let filterContent = state.RawFilterText.TrimStart('^')
             // let shouldExpand = state.FilteredCache.TrueForAll(fun v -> v.CompletionText.StartsWith(filterContent) )
-            
+
             // if shouldExpand then
-            //     let longestCommonPrefix = 
-            //         state.FilteredCache 
-            //         |> Seq.map (fun v -> v.CompletionText) 
+            //     let longestCommonPrefix =
+            //         state.FilteredCache
+            //         |> Seq.map (fun v -> v.CompletionText)
             //         |> Helpers.Seq.longestCommonPrefix
-            //         |> (fun v -> 
+            //         |> (fun v ->
             //             v.TrimStart(invalidChars)
             //         )
-                
-            //     let longestCommonPrefix = 
-            //         if state.CommandString.EndsWith('-') 
-            //         then filterContent 
+
+            //     let longestCommonPrefix =
+            //         if state.CommandString.EndsWith('-')
+            //         then filterContent
             //         else longestCommonPrefix
 
-            //     let longestCommonPrefix = 
+            //     let longestCommonPrefix =
             //         if state.RawFilterText.StartsWith('$') && state.RawFilterText.Contains(':')
             //         then longestCommonPrefix.Substring(longestCommonPrefix.IndexOf(':'))
             //         else longestCommonPrefix
 
-                
+
 
             //     match longestCommonPrefix.Length = filterContent.Length with
             //     | true -> StateResult.DoNothing state
-            //     | _ -> 
+            //     | _ ->
 
             //     match state.RawFilterText.StartsWith("^", StringComparison.InvariantCultureIgnoreCase) with
             //     | true -> updateWithFilterText ($"^{longestCommonPrefix}") state |> InputChanged
@@ -161,11 +167,10 @@ module DisplayState =
         state.SelectedIndex <- 0
         state.RawFilterText <- state.RawFilterText[.. state.RawFilterText.Length - 2]
         state
-        
+
     let addFilterCharInplace (c:char) (state:DisplayState) =
         state.SelectedIndex <- 0
         state.RawFilterText <- $"%s{state.RawFilterText}%c{c}"
         state
 
-    
-        
+

@@ -37,18 +37,6 @@ module Graphics =
     let boxBottom length content = $"╚══ {content} ".PadRight(length + 1, '═') + "╝"
 
 
-module PsArgument =
-    let getText (v: string) =
-        let argtype = v
-        let startidx = argtype.IndexOf(": [")
-
-        if startidx = -1 then
-            ""
-        else
-            argtype.Substring(startidx + ": [".Length)
-            |> (fun f -> f[.. f.Length - 2])
-
-
 let bufferCell char =
     BufferCell(
         Character = char,
@@ -56,6 +44,11 @@ let bufferCell char =
         ForegroundColor = ConsoleColor.White
     )
 
+
+let truncate n (str:string) =
+    match str.Length > n with
+    | false -> str
+    | true -> str[..n - 1]
 
 type PlatformKind =
     | Win
@@ -74,6 +67,11 @@ type PsCompletion() =
     /// (usually contains argument type e.g [string array])
     static member toText(res: CompletionResult) =
         if not (res.ToolTip.StartsWith("[")) then res.ListItemText else
+        match res.ResultType with
+        | CompletionResultType.ParameterName ->
+            let typeinfo = res.ToolTip |> (fun f -> f.Replace("[]", " array")) |> (fun f -> if f.StartsWith "[" then ": " + f[.. f.IndexOf("]")] elif f.StartsWith "\n" then Regex.Matches(f, "\[-").Count |> (fun f -> $": %i{f}") else "")
+            $"{truncate 30 res.ListItemText,-30}{truncate 25 typeinfo,25}"
+        | _ ->
         let typeinfo =
             res.ToolTip
             |> (fun f -> f.Replace("[]", " array"))
@@ -99,7 +97,7 @@ open System
 open System.Runtime.InteropServices
 
 type String() =
-    
+
     static member longestCommonPrefix s1 s2 =
         let rec loop (acc:StringBuilder) s1 s2 =
             match s1, s2 with
@@ -111,11 +109,11 @@ type String() =
                 else
                     acc
         (loop (StringBuilder()) s1 s2).ToString()
-        
+
     static member trimForHud(str:string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
         let sb = StringBuilder()
-        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do 
-            match str[i] with 
+        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do
+            match str[i] with
             | '\n' -> ()
             | '\r' -> ()
             | c -> sb.Append(c)  |> ignore
@@ -124,12 +122,12 @@ type String() =
     static member trimForBuffer(str:string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
         if String.IsNullOrEmpty(str) then StringBuilder(String.replicate maxLength " ") else
         let sb = StringBuilder()
-        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do 
-            match str[i] with 
+        for i = 0 to (min (str.Length - 1) (maxLength - 1)) do
+            match str[i] with
             | '\n' -> ()
             | '\r' -> ()
             | c -> sb.Append(c)  |> ignore
-        
+
         let mutable pos = sb.Length - 1
         let mutable count = 0
         if Char.IsWhiteSpace(sb[pos]) then
@@ -148,34 +146,34 @@ module File =
         let mutable suffix = String.Empty
         let mutable readable = 0L
         if i < 0x400L then $"%i{i} B" else
-        match i with 
+        match i with
         | _ when i >= 0x1000000000000000L -> suffix <- "EB"; readable <- i >>> 50
         | _ when i >= 0x4000000000000L -> suffix <- "PB"; readable <- i >>> 40
         | _ when i >= 0x10000000000L -> suffix <- "TB"; readable <- i >>> 30
         | _ when i >= 0x40000000L -> suffix <- "GB"; readable <- i >>> 20
         | _ when i >= 0x100000L -> suffix <- "MB"; readable <- i >>> 10
-        | _ when i >= 0x400L -> suffix <- "KB"; readable <- i 
-        | _ -> suffix <- "B"; readable <- 0 
+        | _ when i >= 0x400L -> suffix <- "KB"; readable <- i
+        | _ -> suffix <- "B"; readable <- 0
         readable <- (readable / 1024L)
         readable.ToString("0.### ") + suffix
-        
+
 
 module Seq =
     let longestCommonPrefix (seq: seq<string>) =
-        seq |> Seq.reduce (fun acc v -> 
+        seq |> Seq.reduce (fun acc v ->
             String.longestCommonPrefix acc v
         )
-        
+
 
 
 type PsCompleteSettings(cmdlet:PSCmdlet) =
-    let _settings : System.Management.Automation.PSObject = 
+    let _settings : System.Management.Automation.PSObject =
         cmdlet.GetVariableValue("PsCompleteSettings") |> unbox
-    
-    member this.IsTopRightHudEnabled = 
+
+    member this.IsTopRightHudEnabled =
         lazy (unbox<bool>(_settings.Properties["TopRightHUDEnabled"].Value))
 
-    member this.PromptText = 
+    member this.PromptText =
         lazy (unbox<string>(_settings.Properties["PromptText"].Value))
 
 
@@ -195,7 +193,7 @@ module Runspace =
     let getCurrentPath() =
         let asd = _runspace_doPath.Value.GetValue(_runspace) :?> PathIntrinsics
         asd.CurrentLocation.Path
-        
+
 
 [<AutoOpen>]
 module Globals =
@@ -211,12 +209,12 @@ type Process with
             do! p.WaitForExitAsync()
             return! p.StandardOutput.ReadToEndAsync()
         }
-        
-let logDebug(item) = 
-    IO.File.WriteAllText("/tmp/log.json",JsonSerializer.Serialize(item,JsonSerializerOptions(WriteIndented = true)) ) 
 
-type ConsoleColor with 
-    static member Default = 
+let logDebug(item) =
+    IO.File.WriteAllText("/tmp/log.json",JsonSerializer.Serialize(item,JsonSerializerOptions(WriteIndented = true)) )
+
+type ConsoleColor with
+    static member Default =
         match System.OperatingSystem.IsWindows() with
         | true -> 0 |> enum<ConsoleColor>
         | false -> -1 |> enum<ConsoleColor>
@@ -225,22 +223,27 @@ type ConsoleColor with
 
 [<AutoOpen>]
 module Patterns =
-    // EndsWith ":" 
-    let (|EndsWith|_|) (p:string) (s:string) =  
-        if s.EndsWith(p, StringComparison.Ordinal)  
-        then Some()  
-        else None
-        
-    let (|StartsWith|_|) (p:string) (s:string) =  
-        if s.StartsWith(p, StringComparison.Ordinal)  
-        then Some()  
+    // EndsWith ":"
+    let (|EndsWith|_|) (p:string) (s:string) =
+        if s.EndsWith(p, StringComparison.Ordinal)
+        then Some()
         else None
 
-    let (|UnfinishedDotnetCommand|_|) (s:string) =  
-        if Regex.IsMatch(s,@"^\[[^\]]*$")
-        then Some()  
+    let (|StartsWith|_|) (p:string) (s:string) =
+        if s.StartsWith(p, StringComparison.Ordinal)
+        then Some()
         else None
-        
+
+    let (|UnfinishedDotnetCommand|_|) (s:string) =
+        if Regex.IsMatch(s,@"^\[[^\]]*$")
+        then Some()
+        else None
+
+    let (|Matches|_|) (p:string) (s:string) =
+        if Regex.IsMatch(s,p)
+        then Some()
+        else None
+
 module Ast =
     open System.Management.Automation
     open System.Management.Automation.Language
@@ -259,4 +262,3 @@ module Ast =
                 Some(commandInfo, commandast)
             | _ -> None
         | _ -> None
-    
