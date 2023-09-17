@@ -229,6 +229,11 @@ module Patterns =
         then Some()
         else None
 
+    let (|Contains|_|) (p:string) (s:string) =
+        if s.Contains(p, StringComparison.Ordinal)
+        then Some()
+        else None
+
     let (|StartsWith|_|) (p:string) (s:string) =
         if s.StartsWith(p, StringComparison.Ordinal)
         then Some()

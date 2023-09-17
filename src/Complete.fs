@@ -63,6 +63,15 @@ let handleExit (ctx:ExitContext) =
             ctx.completion.ReplacementLength,
             v + completionText
         )
+    | (Contains ":") as v when
+        ctx.displayState.FirstWordOfBufferString.Value = "scp"
+        && ctx.displayState.BufferString.Contains('/') ->
+        let correctindex = ctx.displayState.BufferString.IndexOf('/')
+        Microsoft.PowerShell.PSConsoleReadLine.Replace(
+            correctindex,
+            ctx.completion.ReplacementLength - (correctindex - ctx.completion.ReplacementIndex),
+            completionText
+        )
     | (UnfinishedDotnetCommand) as v ->
         match ctx.exitKey with
         | ExitKey.Enter -> replaceRaw(ctx,completion)
