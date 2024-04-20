@@ -3,7 +3,7 @@ cross-platform custom powershell autocomplete
 
 ## demo  
 
-https://user-images.githubusercontent.com/36763595/231883963-51af0857-ef83-47f1-9aca-f011304c1b04.mp4
+https://github.com/ieviev/pscomplete/assets/36763595/8b0913fc-c792-47bd-ad2d-2e38740db21f
 
 
 ## installation
