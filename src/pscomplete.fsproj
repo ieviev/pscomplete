@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>FS0086;FS3391</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <GC>true</GC>
+    <DebugType>none</DebugType>
+    <CrossModuleOptimization>true</CrossModuleOptimization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Host.fs" />
+    <Compile Include="State.fs" />
+    <Compile Include="Buffer.fs" />
+    <Compile Include="Render.fs" />
+    <Compile Include="UI.fs" />
+    <Compile Include="Complete.fs" />
+    <Compile Include="Library.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="powershellstandard.library" Version="5.1.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.PowerShell.PSReadLine2">
+      <HintPath>../PsComplete/Microsoft.PowerShell.PSReadLine2.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
