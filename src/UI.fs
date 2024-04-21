@@ -222,21 +222,59 @@ type AnsiRenderer(host: Host) =
                     data.Lines |> Seq.iter hudLines.Add
                 with e ->
                     ()
+            | CompletionResultType.Command ->
+                let ci =
+                    match host.Cmdlet.InvokeCommand.GetCommand(result.CompletionText, CommandTypes.All) with 
+                    | n when n.CommandType = CommandTypes.Alias -> 
+                        host.Cmdlet.InvokeCommand.GetCommand(n.Definition, CommandTypes.All)    
+                    | n -> n
+                
+                let output = 
+                    ci.OutputType
+                    |> Seq.collect (fun v -> 
+                        Ast.printTypeInfo(v.Type))
+                    |> String.concat "|"
+                hudLines.Add ($"{ci.CommandType} : [{output}]")
+                hudLines.Add ""
+                try 
+                    let nonCommon = 
+                        ci.Parameters
+                        |> Seq.where (fun v -> 
+                            PSCmdlet.CommonParameters.Contains(v.Key) |> not
+                            && (not (isNull v.Value))
+                        )
+                        |> Seq.map (fun v -> v.Value)
+                    for p in nonCommon do 
+                        let aliases = 
+                            if p.Aliases.Count = 0 then 
+                                "" 
+                            else
+                                (p.Aliases |> Seq.map (fun v -> $"-{v}") |> String.concat "|") + ", "
+                        if not (isNull p.ParameterType) then 
+                            let pts = Ast.printTypeInfo p.ParameterType
+                            hudLines.Add($"{aliases}{p.Name} : {pts}")
+                with e -> 
+                    ()
+
+                
             | CompletionResultType.ParameterValue -> ()
             | CompletionResultType.ParameterName ->
                 host.CommandInfo.Value
                 |> Option.bind (fun v ->
-                    match v.Parameters.TryGetValue(result.ListItemText) with
-                    | true, v -> Some v
-                    | _ -> None
+                    try 
+                        match v.Parameters.TryGetValue(result.ListItemText) with
+                        | true, v -> Some v
+                        | _ -> None
+                    with e -> 
+                        None
                 )
                 |> Option.iter (fun p ->
                     let aliases = 
                         if p.Aliases.Count = 0 then 
                             "" 
                         else
-                            " (" + (p.Aliases |> String.concat "|") + ")"
-                    hudLines.Add($"Parameter {p.Name}{aliases}")
+                            (p.Aliases |> Seq.map (fun v -> $"-{v}") |> String.concat "|") + ", "
+                    hudLines.Add($"{aliases}{p.Name}")
                     for pts in Ast.printTypeInfo p.ParameterType do
                         hudLines.Add(pts)
                     for attr in Ast.printAttributesInfo p do
@@ -390,7 +428,10 @@ type AnsiRenderer(host: Host) =
             && OperatingSystem.IsLinux()
         then
             let freespace = host.FrameWidth - longestLen - 2
-            let hudWidth = if freespace > 35 then 35 else 25
+            let hudWidth = 
+                if freespace > 45 then 45
+                elif freespace > 35  then 35 
+                else 25
             let currentCommand = state.FilteredCache[state.SelectedIndex]
 
             let hudInfoArray =

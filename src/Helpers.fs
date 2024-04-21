@@ -68,8 +68,8 @@ type PsCompletion() =
     /// tooltips enclosed in [] are displayed
     /// (usually contains argument type e.g [string array])
     static member toText(res: CompletionResult) =
-        
-        
+
+
         if not (res.ToolTip.StartsWith("[")) then
             res.ListItemText
         else
@@ -135,10 +135,10 @@ type String() =
 
     static member trimForBuffer
         (
-            str :ReadOnlySpan<char>,
+            str: ReadOnlySpan<char>,
             [<Optional; DefaultParameterValue(20)>] maxLength: int
         ) =
-        
+
         if str.IsEmpty then
             ValueNone
         else
@@ -149,11 +149,13 @@ type String() =
             for i = 0 to arr.Length - 1 do
                 if i < span.Length then
                     match str[i] with
-                    | '\n' | '\r' -> arrspan[i] <- ' '
+                    | '\n'
+                    | '\r' -> arrspan[i] <- ' '
                     | c -> arrspan[i] <- c
-                else 
+                else
                     arrspan[i] <- ' '
-            ValueSome (arr)
+
+            ValueSome(arr)
 
 
 module File =
@@ -292,6 +294,7 @@ module Patterns =
 
 module Directory =
     open System.IO
+
     let getExecutables(directoryPath: string) =
         directoryPath
         |> Directory.EnumerateFiles
@@ -313,20 +316,23 @@ module Directory =
 
 open System.Runtime.CompilerServices
 open System.Buffers
+
 [<Sealed>]
 type ObjectPool<'t>(generate: unit -> 't, initialPoolCount: int) =
     let mutable pool = Queue<'t>()
+
     do
         for _ = 1 to initialPoolCount do
-            pool.Enqueue(generate())
+            pool.Enqueue(generate ())
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Rent() =
         match pool.TryDequeue() with
         | (true, v) -> v
-        | _ -> generate()
+        | _ -> generate ()
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Return(item:'t) =
-        pool.Enqueue(item)
+    member this.Return(item: 't) = pool.Enqueue(item)
 
 
 
@@ -342,6 +348,7 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
             ArrayPool.Shared.Return(pool)
             pool <- newArray
             limit <- newArray.Length
+
     member this.Add(item) =
         if size = limit then
             let newLimit = limit * 2
@@ -361,8 +368,8 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
         items.CopyTo(pool.AsSpan())
 
     member this.Item
-        with get(i:int) = pool[i]
-        and set (i:int) v = pool[i] <- v
+        with get (i: int) = pool[i]
+        and set (i: int) v = pool[i] <- v
 
     member this.Clear() = size <- 0
 
@@ -399,12 +406,16 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
 
     member this.Length = size
     member this.Count = size
+
     member this.Exists(lambda) =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         let mutable found = false
+
         while not found && e.MoveNext() do
             found <- lambda e.Current
+
         found
+
     member this.AsSpan() = pool.AsSpan(0, size)
     member this.AsMemory() = pool.AsMemory(0, size)
     member this.AsArray() = pool.AsSpan(0, size).ToArray()
@@ -416,63 +427,76 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
         member this.Dispose() = this.Dispose()
 
 
-let inline utf8(str:string) = System.Text.Encoding.UTF8.GetBytes(str)
-let inline utf8c(str:char) = System.Text.Encoding.UTF8.GetBytes($"%c{str}")
+let inline utf8(str: string) = System.Text.Encoding.UTF8.GetBytes(str)
+
+let inline utf8c(str: char) =
+    System.Text.Encoding.UTF8.GetBytes($"%c{str}")
 
 
-module MemoryStream = 
-    let inline reset (ms:System.IO.MemoryStream) = 
+module MemoryStream =
+    let inline reset(ms: System.IO.MemoryStream) =
         let buf = ms.GetBuffer()
-        Array.Clear(buf,0,int buf.Length)
-        ms.Seek(0L,IO.SeekOrigin.Begin) |> ignore
+        Array.Clear(buf, 0, int buf.Length)
+        ms.Seek(0L, IO.SeekOrigin.Begin) |> ignore
         ms.SetLength(0)
 
-    let inline copyTo (targetStream:IO.Stream) (ms:System.IO.MemoryStream) = 
-        ms.Seek(0L,IO.SeekOrigin.Begin) |> ignore
+    let inline copyTo (targetStream: IO.Stream) (ms: System.IO.MemoryStream) =
+        ms.Seek(0L, IO.SeekOrigin.Begin) |> ignore
         ms.CopyTo(targetStream)
 
 
-module AnsiColor = 
+module AnsiColor =
     let BG_GREEN_LIGHT = "\x1b[102m"B
     let FG_BLACK = "\x1b[30m"B
     let RESET = "\x1b[0m"B
-    
 
-module Ansi = 
+
+module Ansi =
 
     open System.IO
-    let inline clearScreen (sout:Stream) = 
-        sout.Write("\x1b[2J\x1b[H"B)
-    let inline writePos (sout:Stream) (line:ReadOnlySpan<byte>) (col:ReadOnlySpan<byte>) (text:ReadOnlySpan<byte>) = 
+    let inline clearScreen(sout: Stream) = sout.Write("\x1b[2J\x1b[H"B)
+
+    let inline writePos
+        (sout: Stream)
+        (line: ReadOnlySpan<byte>)
+        (col: ReadOnlySpan<byte>)
+        (text: ReadOnlySpan<byte>)
+        =
         sout.Write("\x1b["B)
         sout.Write(line)
         sout.Write(";"B)
         sout.Write(col)
         sout.Write("H"B)
         sout.Write(text)
-    let inline writeVert (sout:Stream) = 
+
+    let inline writeVert(sout: Stream) =
         sout.Write("\x1b[0m"B)
         sout.Write(utf8c Chars.verticalDouble)
-    let inline write (sout:Stream) (text:ReadOnlySpan<byte>) = 
+
+    let inline write (sout: Stream) (text: ReadOnlySpan<byte>) =
         sout.Write("\x1b[0m"B)
         sout.Write(text)
-    let inline writeWs (sout:Stream) (len:int) = 
+
+    let inline writeWs (sout: Stream) (len: int) =
         for _ = 1 to len do
             sout.Write(" "B)
-    let inline writeln (sout:Stream) (text:ReadOnlySpan<byte>) = 
+
+    let inline writeln (sout: Stream) (text: ReadOnlySpan<byte>) =
         sout.Write("\x1b[0m"B)
         sout.Write(text)
         sout.Write("\n"B)
-    let inline writeRed (sout:Stream) (text:ReadOnlySpan<byte>) = 
+
+    let inline writeRed (sout: Stream) (text: ReadOnlySpan<byte>) =
         sout.Write("\x1b[31m"B)
         sout.Write(text)
-    let inline writeGreenBg (sout:Stream) (text:ReadOnlySpan<byte>) = 
+
+    let inline writeGreenBg (sout: Stream) (text: ReadOnlySpan<byte>) =
         sout.Write(AnsiColor.FG_BLACK)
         sout.Write(AnsiColor.BG_GREEN_LIGHT)
         sout.Write(text)
-    let inline ln (sout:Stream) = 
-        sout.Write("\n"B)
-        
+
+    let inline ln(sout: Stream) = sout.Write("\n"B)
+
 
 
 
@@ -506,92 +530,109 @@ module Ast =
     let tryGetParameterName(cmdlet: PSCmdlet, bufferString: string) =
         let mutable tokens: Token[] = [||]
         let mutable errors: ParseError[] = [||]
+
         let scriptBlockAst =
             System.Management.Automation.Language.Parser.ParseInput(bufferString, &tokens, &errors)
+
         let lastStatement = scriptBlockAst.EndBlock.Statements |> Seq.last
         lastStatement
 
 
-    let rec printTypeInfo (ptype: Type) : string list =
-        if ptype = typeof<int> then List.singleton "int"
-        elif ptype = typeof<string> then List.singleton "string"
-        elif ptype = typeof<PSCredential> then List.singleton "pscredential"
-        elif ptype = typeof<SwitchParameter> then List.singleton "switch"
-        elif ptype = typeof<ActionPreference> then List.singleton "preference"
-        elif ptype.IsEnum then 
+    let rec printTypeInfo(ptype: Type) : string list =
+        if isNull ptype then
+            []
+        else if ptype = typeof<int> then
+            List.singleton "int"
+        elif ptype = typeof<bool> then List.singleton "bool"
+        elif ptype = typeof<byte> then List.singleton "byte"
+        elif ptype = typeof<int64> then List.singleton "int64"
+        elif ptype = typeof<uint32> then List.singleton "uint"
+        elif ptype = typeof<obj> then
+            List.singleton "obj"
+        elif ptype = typeof<string> then
+            List.singleton "string"
+        elif ptype = typeof<PSCredential> then
+            List.singleton "pscredential"
+        elif ptype = typeof<SwitchParameter> then
+            List.singleton "switch"
+        elif ptype = typeof<ActionPreference> then
+            List.singleton "preference"
+        elif ptype.IsEnum then
             let evs = ptype.GetEnumNames()
             if evs.Length < 6 then
-                evs |> String.concat "|" |> (fun v -> [$"({v})"])
-            else 
-                let collection = 
-                    evs 
-                    |> Seq.fold (fun (acc:StringBuilder list) v -> 
-                        match acc with 
-                        | [] -> acc // impossible
-                        | head :: tail when head.Length = 0 -> 
-                            head.Append($"[{v}") |> ignore
-                            acc
-                        | head :: tail when (head.Length + v.Length) > 25 -> 
-                            head.Append(" ") |> ignore
-                            let newb = StringBuilder()
-                            newb.Append(v) :: acc
-                        | head :: tail -> 
-                            head.Append(", ") |> ignore
-                            head.Append(v) |> ignore
-                            acc
-                    ) [StringBuilder()]
+                evs |> String.concat "|" |> (fun v -> [ $"({v})" ])
+            else
+                let collection =
+                    evs
+                    |> Seq.fold
+                        (fun (acc: StringBuilder list) v ->
+                            match acc with
+                            | [] -> acc // impossible
+                            | head :: tail when head.Length = 0 ->
+                                head.Append($"[{v}") |> ignore
+                                acc
+                            | head :: tail when (head.Length + v.Length) > 25 ->
+                                head.Append(" ") |> ignore
+                                let newb = StringBuilder()
+                                newb.Append(v) :: acc
+                            | head :: tail ->
+                                head.Append(", ") |> ignore
+                                head.Append(v) |> ignore
+                                acc
+                        )
+                        [ StringBuilder() ]
                     |> Seq.toList
+
                 collection |> Seq.head |> (fun v -> v.Append("]") |> ignore)
                 (collection |> List.rev |> List.map (fun v -> v.ToString()))
-                
-        elif ptype.IsArray  then 
+        elif ptype.IsArray then
             let et = ptype.GetElementType()
             let inner = printTypeInfo et
             List.singleton $"{inner} array"
-        else 
+        elif ptype.IsGenericType then
+            let genarg = ptype.GenericTypeArguments
+            let gens =
+                genarg
+                |> Seq.collect (fun v ->
+                    let vt = v
+                    if vt.IsEnum then List.singleton vt.Name else printTypeInfo v
+                )
+                |> String.concat ","
+                |> (fun v -> $"<{v}>")
+
+            let tname = ptype.Name[.. ptype.Name.Length - 3]
+            List.singleton $"{tname}{gens}"
+
+
+        else
             List.singleton $"{ptype.Name}"
 
 
-    let rec printAttributesInfo (parameters: ParameterMetadata) : string list =
+    let rec printAttributesInfo(parameters: ParameterMetadata) : string list =
         parameters.Attributes
-        |> Seq.fold (fun acc (attr) -> 
-            match attr with 
-            | :? ParameterAttribute as a -> acc
-            | :? ValidateNotNullOrEmptyAttribute as a -> acc
-            | :? ValidateNotNullAttribute as a -> acc
-            | :? ValidateRangeAttribute as a -> 
-                $"range: {a.MinRange} .. {a.MaxRange}" :: acc
-            | :? ValidateSetAttribute as a -> 
-                "(" + (a.ValidValues |> String.concat "|") + ")" :: acc
-            | :? AliasAttribute as a -> acc
-            | :? ArgumentTransformationAttribute as a -> acc
-            | :? ArgumentCompleterAttribute as a -> "completer" :: acc
-            | _ -> 
-                let gt = attr.GetType()
-                let its = gt.GetInterfaces() |> Seq.map (fun v -> v.Name) |> String.concat ""
-                gt.Name :: its :: acc
-                // $"{gt.Name}, {its}" :: acc
-                // acc
-        ) [] 
-        
-        // let loop acc curr = 
+        |> Seq.fold
+            (fun acc (attr) ->
+                match attr with
+                | :? ParameterAttribute as a -> acc
+                | :? ValidateNotNullOrEmptyAttribute as a -> acc
+                | :? ValidateNotNullAttribute as a -> acc
+                | :? ValidateRangeAttribute as a -> $"range: {a.MinRange} .. {a.MaxRange}" :: acc
+                | :? ValidateSetAttribute as a ->
+                    "(" + (a.ValidValues |> String.concat "|") + ")" :: acc
+                | :? AliasAttribute as a -> acc
+                | :? ArgumentTransformationAttribute as a -> acc
+                | :? ArgumentCompleterAttribute as a -> acc
+                | _ ->
+                    let gt = attr.GetType()
 
-        // if ptype = typeof<int> then List.singleton "int"
-        // elif ptype = typeof<string> then List.singleton "string"
-        // elif ptype = typeof<SwitchParameter> then List.singleton "switch"
-        // elif ptype = typeof<ActionPreference> then List.singleton "preference"
-        // elif ptype.IsEnum then 
-        //     let evs = ptype.GetEnumNames()
-        //     if evs.Length < 6 then
-        //         evs |> String.concat "|" |> (fun v -> [$"({v})"])
-        //     else 
-        //         List.ofSeq evs
-        // elif ptype.IsArray  then 
-        //     let et = ptype.GetElementType()
-        //     let inner = printTypeInfo et
-        //     List.singleton $"{inner} array"
-        // else 
-        //     List.singleton $"{ptype.Name}"
+                    match gt.Name with
+                    | "ValidateVariableName" -> acc
+                    | _ ->
+                        let its =
+                            gt.GetInterfaces() |> Seq.map (fun v -> v.Name) |> String.concat ""
 
-
-
+                        gt.Name :: its :: acc
+            // $"{gt.Name}, {its}" :: acc
+            // acc
+            )
+            []
