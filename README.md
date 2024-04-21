@@ -3,7 +3,9 @@ cross-platform custom powershell autocomplete
 
 ## demo  
 
-https://github.com/ieviev/pscomplete/assets/36763595/8b0913fc-c792-47bd-ad2d-2e38740db21f
+
+https://github.com/ieviev/pscomplete/assets/36763595/06742872-b7dd-465e-a5a5-8c2d928421b9
+
 
 
 ## installation
@@ -22,6 +24,16 @@ Additionally:
 
 - Performs well up to 100 000+ completions
 - Press Tab / Enter to pick the highlighted command
+
+## configuration
+
+the top-right context info in the demo is not on by default and 
+can be turned on by adding this to your profile
+
+```powershell
+$PsCompleteSettings.TopRightHUDEnabled = $true; # off by default
+```
+
 
 <!-- 
 ## one caveat because of missing features in Powershell Core:
