@@ -31,8 +31,9 @@ let replaceDefault (ctx:ExitContext, completion:CompletionResult) =
     | _ -> replace( start', end', completion.CompletionText + " " )
 
 let handleExit (ctx:ExitContext) =
-    Console.Clear()
-    // Console.Out.Write("\x1b[m") // ansi reset
+    Microsoft.PowerShell.PSConsoleReadLine.ClearScreen()
+    // Console.Clear()
+    // Console.Out.Write("\x1b[m")
 
     match ctx.exitKey with
     | ExitKey.Escape -> ()
