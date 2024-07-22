@@ -270,7 +270,6 @@ type ConsoleColor with
 
 [<AutoOpen>]
 module Patterns =
-    // EndsWith ":"
     let (|EndsWith|_|) (p: string) (s: string) =
         if s.EndsWith(p, StringComparison.Ordinal) then Some() else None
 
@@ -541,6 +540,8 @@ module Ast =
     let rec printTypeInfo(ptype: Type) : string list =
         if isNull ptype then
             []
+        else if ptype = typeof<Void> then
+            List.singleton "()"
         else if ptype = typeof<int> then
             List.singleton "int"
         elif ptype = typeof<bool> then List.singleton "bool"
@@ -606,6 +607,23 @@ module Ast =
 
         else
             List.singleton $"{ptype.Name}"
+
+    let rec printMethodSignature(m: MethodInfo) : string list =
+        let print1line t = printTypeInfo t |> String.concat " "
+        let parameters = 
+            m.GetParameters()
+            |> Array.map (fun v -> $"{v.Name} : {print1line v.ParameterType}" )
+        let returns : string = print1line m.ReturnType
+        [
+            match parameters.Length with 
+            | 0 -> $"() : {returns}"
+            | n -> 
+                for p in parameters do 
+                    $"({p})    "
+                $": {returns}"
+        ]
+        
+        
 
 
     let rec printAttributesInfo(parameters: ParameterMetadata) : string list =

@@ -22,12 +22,6 @@ function Invoke-GuiPsComplete() {
         $bufferCursorPosition = 2
     }
     [System.Management.Automation.CommandCompletion] $completion = TabExpansion2 $bufferString $bufferCursorPosition 
-
-    # $frameh = $Host.UI.RawUI.WindowSize.Height - $Host.UI.RawUI.CursorPosition.Y - 1
-    # if ($frameh -lt 8 -and $PsCompleteSettings.ForceClearBeforeUse) {
-    #     AnsiClearScreen;
-    # }
-    
     Invoke-PsComplete `
         -CommandCompletion $completion `
         -BufferString $bufferString `
@@ -36,16 +30,15 @@ function Invoke-GuiPsComplete() {
 
 
 function Install-PsComplete() {
-    $loadedAssemblies = `
-        [System.AppDomain]::CurrentDomain.GetAssemblies() `
-    | Where-Object Location `
-    | ForEach-Object { $_.GetName().Name };
-   
-    if (!($loadedAssemblies.Contains('FSharp.Core'))) {
+    if ([System.Reflection.Assembly]::Load("FSharp.Core") -eq $null){
         Import-Module "$PSScriptRoot/FSharp.Core.dll"    
     }
-    if (!($loadedAssemblies.Contains('pscomplete'))) {
+    
+    try {
         Import-Module "$PSScriptRoot/pscomplete.dll"   
+    }
+    catch {
+
     }
 
     Set-PSReadLineKeyHandler -Chord 'Tab' -ScriptBlock { 

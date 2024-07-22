@@ -217,11 +217,40 @@ type AnsiRenderer(host: Host) =
                 | _ -> ()
             | CompletionResultType.Variable -> hudLines.Add("Variable")
             | _ when result.ToolTip.StartsWith("{") ->
+                // experimental
                 try
                     let data = System.Text.Json.JsonSerializer.Deserialize<HudInfo>(result.ToolTip)
                     data.Lines |> Seq.iter hudLines.Add
                 with e ->
                     ()
+            | CompletionResultType.Method ->
+                hudLines.Add($"Method")
+                let ast = host.PipelineAst.Value.Value
+                let pe = ast.PipelineElements |> Seq.last
+                match pe with
+                | :? CommandExpressionAst as ce -> 
+                    // hudLines.Add($"ce:{ce}")
+                    match ce.Expression with 
+                    | :? MemberExpressionAst as me -> 
+                        // hudLines.Add($"me:{me.Expression.GetType().Name}")
+                        match me.Expression with 
+                        | :? TypeExpressionAst as te ->
+                            let rt = te.TypeName.GetReflectionType()
+                            // hudLines.Add($"type {rt.Name}")
+                            let mems = 
+                                rt.GetMembers()
+                                |> Seq.where (fun v -> v.Name = result.ListItemText )   
+                                |> Seq.toArray
+                            // rtmethodinfo
+                            for m in mems do 
+                                match m with 
+                                | :? System.Reflection.MethodInfo as v -> 
+                                    Ast.printMethodSignature v
+                                    |> Seq.iter hudLines.Add
+                                | _ -> ()
+                        | _ -> ()
+                    | _ -> ()
+                | _ -> ()
             | CompletionResultType.Command ->
                 let ci =
                     match host.Cmdlet.InvokeCommand.GetCommand(result.CompletionText, CommandTypes.All) with 
@@ -300,9 +329,7 @@ type AnsiRenderer(host: Host) =
                 )
                 |> Result.defaultWith (fun v -> 
                     hudLines.Add("no info")
-                    // hudLines.Add(v)
                 )
-                
                 // host.PipelineAst.Value 
                 // |> Option.iter (fun v -> 
                 //     let ce = v.PipelineElements[0] :?> CommandExpressionAst
@@ -355,10 +382,10 @@ type AnsiRenderer(host: Host) =
         }
 
     member this.RenderCachedState(state: DisplayState) =
+        // state.Sout.SetLength(0)
         let sout = state.Sout
         let maxwidth = host.FrameWidth - 2
-        let pageLength = host.BlankBuffer.GetLength(0) - 2
-        // let pageLength = _cachedBuffer.GetLength(0)  - 2 // frames
+        let pageLength = host.FrameHeight - 2
         let pageIndex = state.SelectedIndex / pageLength
         let pageSelIndex = state.SelectedIndex % pageLength
         use mutable currPage = new SharedResizeArray<string>(pageLength)
@@ -387,10 +414,10 @@ type AnsiRenderer(host: Host) =
             else
                 state.SelectedIndex + 1
 
-        let bottomLine =
-            Graphics.boxBottom longestLen $"{vis_idx} of {state.FilteredCache.Count}"
+        
 
-        Ansi.clearScreen state.Sout
+        // Ansi.clearScreen state.Sout
+        
         let tout = state.Membuf
         let mutable e = currPage.GetEnumerator()
         let mutable i = 0
@@ -413,6 +440,8 @@ type AnsiRenderer(host: Host) =
             Ansi.ln tout
             i <- i + 1
 
+        let bottomLine =
+            Graphics.boxBottom longestLen $"{vis_idx} of {state.FilteredCache.Count}"
         Ansi.writeln tout (utf8 bottomLine)
 
         let inline whud (ln: int) (str: string) =
@@ -425,7 +454,6 @@ type AnsiRenderer(host: Host) =
         if
             host.Settings.IsTopRightHudEnabled.Value
             && state.FilteredCache.Count > state.SelectedIndex
-            && OperatingSystem.IsLinux()
         then
             let freespace = host.FrameWidth - longestLen - 2
             let hudWidth = 
@@ -444,5 +472,9 @@ type AnsiRenderer(host: Host) =
                 whud i str
                 i <- i + 1
 
+        System.Console.Clear()
         tout |> MemoryStream.copyTo sout
+        Console.CursorVisible <- false
+        sout.Flush()
         MemoryStream.reset tout
+        

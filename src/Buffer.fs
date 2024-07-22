@@ -10,9 +10,6 @@ let defaultColor =
     | true -> 0 |> enum<ConsoleColor>
     | false -> -1 |> enum<ConsoleColor>
 
-let inline clearInPlace(host: Host, buffer: byref<BufferCell[,]>) =
-    host.RawUI.BackgroundColor <- defaultColor
-    buffer <- unbox (host.BlankBuffer.Clone())
 
 let inline writeLine(buffer: byref<BufferCell[,]>, lineNo: int, line: ReadOnlySpan<char>) =
     let xmax = buffer.GetLength(1) // - 1

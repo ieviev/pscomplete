@@ -24,7 +24,7 @@ type Host(cmdlet:PSCmdlet,bufferString:string, settings:PsCompleteSettings) =
         - 1 
     let _frameWidth = cmdlet.Host.UI.RawUI.WindowSize.Width
     let _frameTopLeft = Coordinates(0, _initialCursorY + 1 - _initialCursorY)
-    let _blankbuffer = rawUI.NewBufferCellArray(Size(_frameWidth, _frameHeight), bufferCell ' ')
+    // let _blankbuffer = rawUI.NewBufferCellArray(Size(_frameWidth, _frameHeight), bufferCell ' ')
     let _scriptBlockAst = 
         lazy 
             let mutable tokens: Token[] = [||]
@@ -56,7 +56,7 @@ type Host(cmdlet:PSCmdlet,bufferString:string, settings:PsCompleteSettings) =
     member this.FrameWidth = _frameWidth
     member val FrameTopLeft = _frameTopLeft
     member val RawUI = rawUI
-    member val BlankBuffer = _blankbuffer
+    // member val BlankBuffer = _blankbuffer
     member val Settings = settings
     member val Cmdlet = cmdlet
     member val BufferString = bufferString
