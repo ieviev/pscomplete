@@ -4,28 +4,7 @@ open System
 open System.Management.Automation
 open System.Management.Automation.Host
 open System.Text.Json
-open System.Linq
 open System.Text.RegularExpressions
-
-module Chars =
-    [<Literal>]
-    let topLeftDouble = '╔'
-
-    [<Literal>]
-    let verticalDouble = '║'
-
-    [<Literal>]
-    let horizontalDouble = '═'
-
-    [<Literal>]
-    let topRightDouble = '╗'
-
-    [<Literal>]
-    let bottomLeftDouble = '╚'
-
-    [<Literal>]
-    let bottomRightDouble = '╝'
-
 
 module Graphics =
     let boxTop length content =
@@ -68,8 +47,6 @@ type PsCompletion() =
     /// tooltips enclosed in [] are displayed
     /// (usually contains argument type e.g [string array])
     static member toText(res: CompletionResult) =
-
-
         if not (res.ToolTip.StartsWith("[")) then
             res.ListItemText
         else
@@ -92,19 +69,19 @@ type PsCompletion() =
                 $"{truncate 30 res.ListItemText, -30}{truncate 25 typeinfo, 25}"
             | _ ->
 
-            let typeinfo =
-                res.ToolTip
-                |> (fun f -> f.Replace("[]", " array"))
-                |> (fun f ->
-                    if f.StartsWith "[" then
-                        ": " + f[.. f.IndexOf("]")]
-                    elif f.StartsWith "\n" then
-                        Regex.Matches(f, "\[-").Count |> (fun f -> $": %i{f}")
-                    else
-                        ""
-                )
+                let typeinfo =
+                    res.ToolTip
+                    |> (fun f -> f.Replace("[]", " array"))
+                    |> (fun f ->
+                        if f.StartsWith "[" then
+                            ": " + f[.. f.IndexOf("]")]
+                        elif f.StartsWith "\n" then
+                            Regex.Matches(f, "\[-").Count |> (fun f -> $": %i{f}")
+                        else
+                            ""
+                    )
 
-            $"{res.ListItemText} {typeinfo}"
+                $"{res.ListItemText} {typeinfo}"
 
 let readkeyopts =
     ReadKeyOptions.NoEcho
@@ -119,7 +96,9 @@ open System.Runtime.InteropServices
 
 type String() =
 
-    static member trimForHud(str: string, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
+    static member trimForHud
+        (str: string, [<Optional; DefaultParameterValue(20)>] maxLength: int)
+        =
         let sb = StringBuilder()
 
         let strSpan = str.AsSpan()
@@ -134,10 +113,7 @@ type String() =
         String.Format($"{{0,{maxLength}}}", sb.ToString())
 
     static member trimForBuffer
-        (
-            str: ReadOnlySpan<char>,
-            [<Optional; DefaultParameterValue(20)>] maxLength: int
-        ) =
+        (str: ReadOnlySpan<char>, [<Optional; DefaultParameterValue(20)>] maxLength: int) =
 
         if str.IsEmpty then
             ValueNone
@@ -160,7 +136,7 @@ type String() =
 
 module File =
 
-    let getHumanReadableFileSize(i: int64) : string =
+    let getHumanReadableFileSize (i: int64) : string =
         let mutable suffix = String.Empty
         let mutable readable = 0L
 
@@ -206,7 +182,8 @@ type PsCompleteSettings(cmdlet: PSCmdlet) =
     member this.IsTopRightHudEnabled =
         lazy (unbox<bool> (_settings.Properties["TopRightHUDEnabled"].Value))
 
-    member this.PromptText = lazy (unbox<string> (_settings.Properties["PromptText"].Value))
+    member this.PromptText =
+        lazy (unbox<string> (_settings.Properties["PromptText"].Value))
 
 
 open System.Management.Automation
@@ -221,14 +198,14 @@ module Runspace =
                 .GetType()
                 .GetProperty("DoPath", BindingFlags.NonPublic ||| BindingFlags.Instance)
 
-    let getCurrentPath() =
+    let getCurrentPath () =
         let asd = _runspace_doPath.Value.GetValue(_runspace) :?> PathIntrinsics
         asd.CurrentLocation.Path
 
 
 [<AutoOpen>]
 module Ps =
-    let inline pwd() = Runspace.getCurrentPath ()
+    let inline pwd () = Runspace.getCurrentPath ()
 
 open System.Diagnostics
 open System.Collections.Generic
@@ -253,7 +230,7 @@ type Process with
             return! p.StandardOutput.ReadToEndAsync()
         }
 
-let logDebug(item) =
+let logDebug (item) =
     IO.File.WriteAllText(
         "/tmp/log.json",
         JsonSerializer.Serialize(item, JsonSerializerOptions(WriteIndented = true))
@@ -271,10 +248,16 @@ type ConsoleColor with
 [<AutoOpen>]
 module Patterns =
     let (|EndsWith|_|) (p: string) (s: string) =
-        if s.EndsWith(p, StringComparison.Ordinal) then Some() else None
+        if s.EndsWith(p, StringComparison.Ordinal) then
+            Some()
+        else
+            None
 
     let (|Contains|_|) (p: string) (s: string) =
-        if s.Contains(p, StringComparison.Ordinal) then Some() else None
+        if s.Contains(p, StringComparison.Ordinal) then
+            Some()
+        else
+            None
 
     let (|StartsWith|_|) (p: string) (s: string) =
         if s.StartsWith(p, StringComparison.Ordinal) then
@@ -282,10 +265,11 @@ module Patterns =
         else
             None
 
-    let (|UnfinishedDotnetCommand|_|)(s: string) =
+    let (|UnfinishedDotnetCommand|_|) (s: string) =
         if Regex.IsMatch(s, @"^\[[^\]]*$") then Some() else None
 
-    let (|Matches|_|) (p: string) (s: string) = if Regex.IsMatch(s, p) then Some() else None
+    let (|Matches|_|) (p: string) (s: string) =
+        if Regex.IsMatch(s, p) then Some() else None
 
 
 
@@ -294,12 +278,15 @@ module Patterns =
 module Directory =
     open System.IO
 
-    let getExecutables(directoryPath: string) =
+    let getExecutables (directoryPath: string) =
         directoryPath
         |> Directory.EnumerateFiles
         |> Seq.where (fun x ->
-            let isExecutable(fi: FileInfo) =
-                int (fi.UnixFileMode &&& (UnixFileMode.UserExecute ||| UnixFileMode.GroupExecute))
+            let isExecutable (fi: FileInfo) =
+                int (
+                    fi.UnixFileMode
+                    &&& (UnixFileMode.UserExecute ||| UnixFileMode.GroupExecute)
+                )
                 <> 0
 
             let fileinfo = FileInfo(x)
@@ -426,14 +413,14 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
         member this.Dispose() = this.Dispose()
 
 
-let inline utf8(str: string) = System.Text.Encoding.UTF8.GetBytes(str)
+let inline utf8 (str: string) = System.Text.Encoding.UTF8.GetBytes(str)
 
-let inline utf8c(str: char) =
+let inline utf8c (str: char) =
     System.Text.Encoding.UTF8.GetBytes($"%c{str}")
 
 
 module MemoryStream =
-    let inline reset(ms: System.IO.MemoryStream) =
+    let inline reset (ms: System.IO.MemoryStream) =
         let buf = ms.GetBuffer()
         Array.Clear(buf, 0, int buf.Length)
         ms.Seek(0L, IO.SeekOrigin.Begin) |> ignore
@@ -453,7 +440,7 @@ module AnsiColor =
 module Ansi =
 
     open System.IO
-    let inline clearScreen(sout: Stream) = sout.Write("\x1b[2J\x1b[H"B)
+    let inline clearScreen (sout: Stream) = sout.Write("\x1b[2J\x1b[H"B)
 
     let inline writePos
         (sout: Stream)
@@ -468,9 +455,9 @@ module Ansi =
         sout.Write("H"B)
         sout.Write(text)
 
-    let inline writeVert(sout: Stream) =
+    let inline writeVert (sout: Stream) =
         sout.Write("\x1b[0m"B)
-        sout.Write(utf8c Chars.verticalDouble)
+        sout.Write(utf8c '║')
 
     let inline write (sout: Stream) (text: ReadOnlySpan<byte>) =
         sout.Write("\x1b[0m"B)
@@ -494,7 +481,7 @@ module Ansi =
         sout.Write(AnsiColor.BG_GREEN_LIGHT)
         sout.Write(text)
 
-    let inline ln(sout: Stream) = sout.Write("\n"B)
+    let inline ln (sout: Stream) = sout.Write("\n"B)
 
 
 
@@ -504,12 +491,16 @@ module Ast =
     open System.Management.Automation
     open System.Management.Automation.Language
 
-    let tryGetPipelineCommand(cmdlet: PSCmdlet, bufferString: string) =
+    let tryGetPipelineCommand (cmdlet: PSCmdlet, bufferString: string) =
         let mutable tokens: Token[] = [||]
         let mutable errors: ParseError[] = [||]
 
         let scriptBlockAst =
-            System.Management.Automation.Language.Parser.ParseInput(bufferString, &tokens, &errors)
+            System.Management.Automation.Language.Parser.ParseInput(
+                bufferString,
+                &tokens,
+                &errors
+            )
 
         let lastStatement = scriptBlockAst.EndBlock.Statements |> Seq.last
 
@@ -520,34 +511,45 @@ module Ast =
             match lastPipelineElement with
             | :? CommandAst as commandast ->
                 let commandName = commandast.GetCommandName()
-                let commandInfo = cmdlet.InvokeCommand.GetCommand(commandName, CommandTypes.All)
+
+                let commandInfo =
+                    cmdlet.InvokeCommand.GetCommand(commandName, CommandTypes.All)
+
                 Some(commandInfo, commandast)
             | _ -> None
         | _ -> None
 
 
-    let tryGetParameterName(cmdlet: PSCmdlet, bufferString: string) =
+    let tryGetParameterName (cmdlet: PSCmdlet, bufferString: string) =
         let mutable tokens: Token[] = [||]
         let mutable errors: ParseError[] = [||]
 
         let scriptBlockAst =
-            System.Management.Automation.Language.Parser.ParseInput(bufferString, &tokens, &errors)
+            System.Management.Automation.Language.Parser.ParseInput(
+                bufferString,
+                &tokens,
+                &errors
+            )
 
         let lastStatement = scriptBlockAst.EndBlock.Statements |> Seq.last
         lastStatement
 
 
-    let rec printTypeInfo(ptype: Type) : string list =
+    let rec printTypeInfo (ptype: Type) : string list =
         if isNull ptype then
             []
         else if ptype = typeof<Void> then
             List.singleton "()"
         else if ptype = typeof<int> then
             List.singleton "int"
-        elif ptype = typeof<bool> then List.singleton "bool"
-        elif ptype = typeof<byte> then List.singleton "byte"
-        elif ptype = typeof<int64> then List.singleton "int64"
-        elif ptype = typeof<uint32> then List.singleton "uint"
+        elif ptype = typeof<bool> then
+            List.singleton "bool"
+        elif ptype = typeof<byte> then
+            List.singleton "byte"
+        elif ptype = typeof<int64> then
+            List.singleton "int64"
+        elif ptype = typeof<uint32> then
+            List.singleton "uint"
         elif ptype = typeof<obj> then
             List.singleton "obj"
         elif ptype = typeof<string> then
@@ -560,6 +562,7 @@ module Ast =
             List.singleton "preference"
         elif ptype.IsEnum then
             let evs = ptype.GetEnumNames()
+
             if evs.Length < 6 then
                 evs |> String.concat "|" |> (fun v -> [ $"({v})" ])
             else
@@ -592,11 +595,16 @@ module Ast =
             List.singleton $"{inner} array"
         elif ptype.IsGenericType then
             let genarg = ptype.GenericTypeArguments
+
             let gens =
                 genarg
                 |> Seq.collect (fun v ->
                     let vt = v
-                    if vt.IsEnum then List.singleton vt.Name else printTypeInfo v
+
+                    if vt.IsEnum then
+                        List.singleton vt.Name
+                    else
+                        printTypeInfo v
                 )
                 |> String.concat ","
                 |> (fun v -> $"<{v}>")
@@ -608,25 +616,29 @@ module Ast =
         else
             List.singleton $"{ptype.Name}"
 
-    let rec printMethodSignature(m: MethodInfo) : string list =
+    let rec printMethodSignature (m: MethodInfo) : string list =
         let print1line t = printTypeInfo t |> String.concat " "
-        let parameters = 
+
+        let parameters =
             m.GetParameters()
-            |> Array.map (fun v -> $"{v.Name} : {print1line v.ParameterType}" )
-        let returns : string = print1line m.ReturnType
+            |> Array.map (fun v -> $"{v.Name} : {print1line v.ParameterType}")
+
+        let returns: string = print1line m.ReturnType
+
         [
-            match parameters.Length with 
+            match parameters.Length with
             | 0 -> $"() : {returns}"
-            | n -> 
-                for p in parameters do 
+            | n ->
+                for p in parameters do
                     $"({p})    "
+
                 $": {returns}"
         ]
-        
-        
 
 
-    let rec printAttributesInfo(parameters: ParameterMetadata) : string list =
+
+
+    let rec printAttributesInfo (parameters: ParameterMetadata) : string list =
         parameters.Attributes
         |> Seq.fold
             (fun acc (attr) ->
@@ -634,7 +646,8 @@ module Ast =
                 | :? ParameterAttribute as a -> acc
                 | :? ValidateNotNullOrEmptyAttribute as a -> acc
                 | :? ValidateNotNullAttribute as a -> acc
-                | :? ValidateRangeAttribute as a -> $"range: {a.MinRange} .. {a.MaxRange}" :: acc
+                | :? ValidateRangeAttribute as a ->
+                    $"range: {a.MinRange} .. {a.MaxRange}" :: acc
                 | :? ValidateSetAttribute as a ->
                     "(" + (a.ValidValues |> String.concat "|") + ")" :: acc
                 | :? AliasAttribute as a -> acc
@@ -647,7 +660,9 @@ module Ast =
                     | "ValidateVariableName" -> acc
                     | _ ->
                         let its =
-                            gt.GetInterfaces() |> Seq.map (fun v -> v.Name) |> String.concat ""
+                            gt.GetInterfaces()
+                            |> Seq.map (fun v -> v.Name)
+                            |> String.concat ""
 
                         gt.Name :: its :: acc
             // $"{gt.Name}, {its}" :: acc

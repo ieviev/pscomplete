@@ -1,5 +1,3 @@
-# immediately chain into the next argument if its a switch
-# or stop if input is expected
 using namespace System.Management.Automation
 
 # global:
@@ -30,17 +28,18 @@ function Invoke-GuiPsComplete() {
 
 
 function Install-PsComplete() {
-    if ([System.Reflection.Assembly]::Load("FSharp.Core") -eq $null){
+    try {
+        [System.Reflection.Assembly]::Load("FSharp.Core")
+    }
+    catch {
         Import-Module "$PSScriptRoot/FSharp.Core.dll"    
     }
-    
     try {
         Import-Module "$PSScriptRoot/pscomplete.dll"   
     }
     catch {
 
     }
-
     Set-PSReadLineKeyHandler -Chord 'Tab' -ScriptBlock { 
         Invoke-GuiPsComplete;
     }

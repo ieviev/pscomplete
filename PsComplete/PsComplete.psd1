@@ -12,7 +12,7 @@
     RootModule           = 'PsComplete.psm1'
 
     # Version number of this module.
-    ModuleVersion        = '0.0.26'
+    ModuleVersion        = '0.0.28'
 
     # Supported PSEditions
     CompatiblePSEditions = ('Core')
