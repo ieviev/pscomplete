@@ -47,7 +47,7 @@ type PsCompletion() =
     /// tooltips enclosed in [] are displayed
     /// (usually contains argument type e.g [string array])
     static member toText(res: CompletionResult) =
-        if not (res.ToolTip.StartsWith("[")) then
+        if String.IsNullOrWhiteSpace(res.ToolTip) || not (res.ToolTip.StartsWith("[")) then
             res.ListItemText
         else
 
@@ -178,12 +178,23 @@ module File =
 type PsCompleteSettings(cmdlet: PSCmdlet) =
     let _settings: System.Management.Automation.PSObject =
         cmdlet.GetVariableValue("PsCompleteSettings") |> unbox
+        
 
     member this.IsTopRightHudEnabled =
         lazy (unbox<bool> (_settings.Properties["TopRightHUDEnabled"].Value))
 
     member this.PromptText =
         lazy (unbox<string> (_settings.Properties["PromptText"].Value))
+
+    /// experimental: invoke callback
+    static member Callbacks =
+        let callbacks = System.AppDomain.CurrentDomain.GetData("pscomplete_callbacks")
+        match callbacks with
+        | null ->
+            let dict = new System.Collections.Generic.Dictionary<string, System.Func<string, string>>()
+            System.AppDomain.CurrentDomain.SetData("pscomplete_callbacks", dict)
+            dict
+        | a -> a :?> System.Collections.Generic.Dictionary<string, System.Func<string, string>>
 
 
 open System.Management.Automation

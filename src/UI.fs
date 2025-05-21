@@ -9,109 +9,122 @@ open System.Management.Automation.Language
 type AnsiRenderer(host: Host) =
     let host = host
 
-    member this.GetCompletionHudInfo(result: CompletionResult) =
-        task {
-            let mutable hudLines = new SharedResizeArray<string>(1)
+    member this.GetContextInfo(result: CompletionResult) =
+        let mutable contextLines = new SharedResizeArray<string>(1)
 
-            match result.ResultType with
-            | CompletionResultType.ProviderItem ->
-                let fileInfo = IO.FileInfo(IO.Path.Combine(pwd (), result.CompletionText))
+        match result.ResultType with
+        | _ when String.IsNullOrWhiteSpace result.ToolTip -> ()
+        | _ when result.ToolTip = "λ" ->
+            match PsCompleteSettings.Callbacks.TryGetValue result.CompletionText with
+            | true, lambda ->
+                let result = lambda.Invoke result.CompletionText
+                use ls = new IO.StringReader(result)
+                let mutable curr = null
 
-                match fileInfo.Exists with
-                | true when OperatingSystem.IsLinux() ->
-                    let! mimeOutput =
-                        System.Diagnostics.Process.runAsync (
-                            "file",
-                            $"--mime-type \"{fileInfo.FullName}\""
-                        )
+                while (curr <- ls.ReadLine()
+                       curr <> null) do
+                    contextLines.Add curr
+            | _ -> ()
+        | CompletionResultType.ProviderItem ->
+            let fileInfo = IO.FileInfo(IO.Path.Combine(pwd (), result.CompletionText))
 
-                    let! fileOutput =
-                        System.Diagnostics.Process.runAsync (
-                            "file",
-                            $"\"{fileInfo.FullName}\""
-                        )
-
-                    hudLines.Add("File")
-                    hudLines.Add(mimeOutput.Substring(fileInfo.FullName.Length + 2))
-                    hudLines.Add(File.getHumanReadableFileSize (fileInfo.Length))
-                    hudLines.Add(fileOutput.Substring(fileInfo.FullName.Length + 2))
-                | true ->
-                    hudLines.Add("File")
-                    hudLines.Add(File.getHumanReadableFileSize (fileInfo.Length))
-                | _ -> ()
-            | CompletionResultType.ProviderContainer ->
-                let dirInfo = IO.DirectoryInfo(IO.Path.Combine(pwd (), result.CompletionText))
-
-                match dirInfo.Exists with
-                | true ->
-                    let numOfFiles = dirInfo.EnumerateFiles() |> Seq.length
-                    hudLines.Add("Directory")
-                    hudLines.Add($"%i{numOfFiles} files")
-                | _ -> ()
-            | CompletionResultType.Variable -> hudLines.Add("Variable")
-            | _ when result.ToolTip.StartsWith("{") ->
-                // experimental
+            match fileInfo.Exists with
+            | true when OperatingSystem.IsLinux() ->
                 try
-                    let data =
-                        System.Text.Json.JsonSerializer.Deserialize<HudInfo>(result.ToolTip)
+                    let mimeOutput =
+                        System.Diagnostics.Process
+                            .runAsync("file", $"--mime-type \"{fileInfo.FullName}\"")
+                            .Result
 
-                    data.Lines |> Seq.iter hudLines.Add
+                    let fileOutput =
+                        System.Diagnostics.Process
+                            .runAsync("file", $"\"{fileInfo.FullName}\"")
+                            .Result
+
+                    contextLines.Add("File")
+                    contextLines.Add(mimeOutput.Substring(fileInfo.FullName.Length + 2))
+                    contextLines.Add(File.getHumanReadableFileSize (fileInfo.Length))
+                    contextLines.Add(fileOutput.Substring(fileInfo.FullName.Length + 2))
                 with e ->
-                    ()
-            | CompletionResultType.Method ->
-                hudLines.Add($"Method")
-                let ast = host.PipelineAst.Value.Value
-                let pe = ast.PipelineElements |> Seq.last
+                    contextLines.Add(e.Message)
+            | true ->
+                contextLines.Add("File")
+                contextLines.Add(File.getHumanReadableFileSize (fileInfo.Length))
+            | _ -> ()
+        | CompletionResultType.ProviderContainer ->
+            let dirInfo = IO.DirectoryInfo(IO.Path.Combine(pwd (), result.CompletionText))
 
-                match pe with
-                | :? CommandExpressionAst as ce ->
-                    // hudLines.Add($"ce:{ce}")
-                    match ce.Expression with
-                    | :? MemberExpressionAst as me ->
-                        // hudLines.Add($"me:{me.Expression.GetType().Name}")
-                        match me.Expression with
-                        | :? TypeExpressionAst as te ->
-                            let rt = te.TypeName.GetReflectionType()
-                            // hudLines.Add($"type {rt.Name}")
-                            let mems =
-                                rt.GetMembers()
-                                |> Seq.where (fun v -> v.Name = result.ListItemText)
-                                |> Seq.toArray
-                            // rtmethodinfo
-                            for m in mems do
-                                match m with
-                                | :? System.Reflection.MethodInfo as v ->
-                                    Ast.printMethodSignature v |> Seq.iter hudLines.Add
-                                | _ -> ()
-                        | _ -> ()
+            match dirInfo.Exists with
+            | true ->
+                try
+                    let numOfFiles = dirInfo.EnumerateFiles() |> Seq.length
+                    contextLines.Add "Directory"
+                    contextLines.Add $"%i{numOfFiles} files"
+                with _ ->
+                    contextLines.Add "Directory"
+                    contextLines.Add $"access denied"
+            | _ -> ()
+        | CompletionResultType.Variable -> contextLines.Add("Variable")
+        | CompletionResultType.Method ->
+            contextLines.Add $"Method"
+            let ast = host.PipelineAst.Value.Value
+            let pe = ast.PipelineElements |> Seq.last
+
+            match pe with
+            | :? CommandExpressionAst as ce ->
+                // contextLines.Add($"ce:{ce}")
+                match ce.Expression with
+                | :? MemberExpressionAst as me ->
+                    // hudLines.Add($"me:{me.Expression.GetType().Name}")
+                    match me.Expression with
+                    | :? TypeExpressionAst as te ->
+                        let rt = te.TypeName.GetReflectionType()
+                        // hudLines.Add($"type {rt.Name}")
+                        let mems =
+                            rt.GetMembers()
+                            |> Seq.where (fun v -> v.Name = result.ListItemText)
+                            |> Seq.toArray
+                        // rtmethodinfo
+                        for m in mems do
+                            match m with
+                            | :? System.Reflection.MethodInfo as v ->
+                                Ast.printMethodSignature v |> Seq.iter contextLines.Add
+                            | _ -> ()
                     | _ -> ()
                 | _ -> ()
-            | CompletionResultType.Command ->
-                let ci =
-                    match
-                        host.Cmdlet.InvokeCommand.GetCommand(
-                            result.CompletionText,
-                            CommandTypes.All
-                        )
-                    with
-                    | n when n.CommandType = CommandTypes.Alias ->
-                        host.Cmdlet.InvokeCommand.GetCommand(n.Definition, CommandTypes.All)
-                    | n -> n
+            | _ -> ()
+        | CompletionResultType.Command ->
+            let ci =
+                match
+                    host.Cmdlet.InvokeCommand.GetCommand(
+                        result.CompletionText,
+                        CommandTypes.All
+                    )
+                    |> Option.ofObj
+                with
+                | Some n when n.CommandType = CommandTypes.Alias ->
+                    Some(host.Cmdlet.InvokeCommand.GetCommand(n.Definition, CommandTypes.All))
+                | v -> v
+
+
+            match ci with
+            | None -> contextLines.Add "no info"
+            | Some ci ->
 
                 let output =
                     ci.OutputType
                     |> Seq.collect (fun v -> Ast.printTypeInfo (v.Type))
                     |> String.concat "|"
 
-                hudLines.Add($"{ci.CommandType} : [{output}]")
-                hudLines.Add ""
+                contextLines.Add $"{ci.CommandType} : [{output}]"
+                contextLines.Add ""
 
                 try
                     let nonCommon =
                         ci.Parameters
                         |> Seq.where (fun v ->
-                            PSCmdlet.CommonParameters.Contains(v.Key) |> not
-                            && (not (isNull v.Value))
+                            not (isNull v.Value)
+                            && PSCmdlet.CommonParameters.Contains(v.Key) |> not
                         )
                         |> Seq.map (fun v -> v.Value)
 
@@ -125,109 +138,61 @@ type AnsiRenderer(host: Host) =
 
                         if not (isNull p.ParameterType) then
                             let pts = Ast.printTypeInfo p.ParameterType
-                            hudLines.Add($"{aliases}{p.Name} : {pts}")
+                            contextLines.Add($"{aliases}{p.Name} : {pts}")
                 with e ->
                     ()
 
 
-            | CompletionResultType.ParameterValue -> ()
-            | CompletionResultType.ParameterName ->
-                host.CommandInfo.Value
-                |> Option.bind (fun v ->
-                    try
-                        match v.Parameters.TryGetValue(result.ListItemText) with
-                        | true, v -> Some v
-                        | _ -> None
-                    with e ->
-                        None
+        | CompletionResultType.ParameterValue -> ()
+        | CompletionResultType.ParameterName ->
+            host.CommandInfo.Value
+            |> Option.bind (fun v ->
+                try
+                    match v.Parameters.TryGetValue(result.ListItemText) with
+                    | true, v -> Some v
+                    | _ -> None
+                with e ->
+                    None
+            )
+            |> Option.iter (fun p ->
+                let aliases =
+                    if p.Aliases.Count = 0 then
+                        ""
+                    else
+                        (p.Aliases |> Seq.map (fun v -> $"-{v}") |> String.concat "|") + ", "
+
+                contextLines.Add($"{aliases}{p.Name}")
+
+                for pts in Ast.printTypeInfo p.ParameterType do
+                    contextLines.Add(pts)
+
+                for attr in Ast.printAttributesInfo p do
+                    contextLines.Add(attr)
+
+            )
+        | CompletionResultType.Property ->
+
+            let availOpt = host.AvailableProperties.Value
+
+            availOpt
+            |> Result.map (fun avail ->
+                avail
+                |> Seq.tryPick (fun (n, t) ->
+                    match n = result.CompletionText with
+                    | true -> Some t
+                    | _ -> None
                 )
                 |> Option.iter (fun p ->
-                    let aliases =
-                        if p.Aliases.Count = 0 then
-                            ""
-                        else
-                            (p.Aliases |> Seq.map (fun v -> $"-{v}") |> String.concat "|")
-                            + ", "
+                    contextLines.Add $"Property {result.CompletionText}"
 
-                    hudLines.Add($"{aliases}{p.Name}")
-
-                    for pts in Ast.printTypeInfo p.ParameterType do
-                        hudLines.Add(pts)
-
-                    for attr in Ast.printAttributesInfo p do
-                        hudLines.Add(attr)
-
+                    for pts in Ast.printTypeInfo p do
+                        contextLines.Add(pts)
                 )
-            | CompletionResultType.Property ->
+            )
+            |> Result.defaultWith (fun _ -> contextLines.Add "no info")
+        | _ -> contextLines.Add(result.ResultType.ToString())
 
-                let availOpt = host.AvailableProperties.Value
-
-                availOpt
-                |> Result.map (fun avail ->
-                    avail
-                    |> Seq.tryPick (fun (n, t) ->
-                        match n = result.CompletionText with
-                        | true -> Some t
-                        | _ -> None
-                    )
-                    |> Option.iter (fun p ->
-                        hudLines.Add($"Property {result.CompletionText}")
-
-                        for pts in Ast.printTypeInfo p do
-                            hudLines.Add(pts)
-                    )
-                )
-                |> Result.defaultWith (fun v -> hudLines.Add("no info"))
-            // host.PipelineAst.Value
-            // |> Option.iter (fun v ->
-            //     let ce = v.PipelineElements[0] :?> CommandExpressionAst
-            //     let ea = ce.Expression
-            //     match ce.Expression with
-            //     | :? MemberExpressionAst as me ->
-
-            //         match me.Expression with
-            //         | :? TypeExpressionAst as te ->
-            //             let rt = te.TypeName.GetReflectionType()
-            //             let p = rt.GetProperties() |> Seq.head
-            //             hudLines.Add(p.Name)
-            //             ()
-            //             // hudLines.Add (string te.TypeName)
-            //             // // hudLines.Add (string te.StaticType)
-            //             // // hudLines.Add (string te.StaticType.Name)
-            //             // hudLines.Add (string te.TypeName.Name)
-            //             // // hudLines.Add ($"{te.TypeName.AssemblyName}")
-            //             // hudLines.Add ($"{te.TypeName.FullName}")
-            //             // hudLines.Add ($"{te.TypeName.GetReflectionType()}")
-
-            //             // hudLines.Add (string (te.TypeName.GetReflectionType()))
-            //             // hudLines.Add (te.TypeName.FullName)
-            //             // hudLines.Add (te.TypeName.AssemblyName)
-            //         | _ ->
-            //             hudLines.Add("no info")
-
-
-
-            //         ()
-
-            //     | _ ->
-            //         hudLines.Add ($"no info")
-
-            //     // let e2 = ea.GetType().v
-
-            //     // hudLines.Add ($"{v.}")
-            //     // // let gv = ce.SafeGetValue()
-            //     // hudLines.Add ($"{ea.GetType()}")
-            //     // // hudLines.Add ($"{ea.SafeGetValue().GetType().Name}")
-            //     // hudLines.Add ($"{ce.Redirections.Count}")
-
-            //     // for s in v.PipelineElements do
-
-            //     //     hudLines.Add $"{s.GetType().Name}"
-            // )
-            | _ -> hudLines.Add($"%s{result.ResultType.ToString()}")
-
-            return hudLines
-        }
+        contextLines
 
     member this.RenderCachedState(state: DisplayState) =
         let sout = state.Sout
@@ -304,22 +269,27 @@ type AnsiRenderer(host: Host) =
         then
             let freespace = host.FrameWidth - longestLen - 2
 
-            let hudWidth =
+            let contextWidth =
                 if freespace > 45 then 45
                 elif freespace > 35 then 35
                 else 25
 
             let currentCommand = state.FilteredCache[state.SelectedIndex]
 
-            let hudInfoArray =
-                this.GetCompletionHudInfo(currentCommand).GetAwaiter().GetResult()
+            let contextInfoArray = this.GetContextInfo(currentCommand)
 
-            let mutable i = 1
+            if contextInfoArray.Count = 0 then
+                ()
+            else
 
-            for hudLine in hudInfoArray do
-                let str = (hudLine.Substring(0, min hudWidth hudLine.Length).Trim())
-                whud i str
-                i <- i + 1
+                let mutable i = 1
+
+                for contextLine in contextInfoArray do
+                    let str =
+                        (contextLine.Substring(0, min contextWidth contextLine.Length).Trim())
+
+                    whud i str
+                    i <- i + 1
 
         System.Console.Clear()
         tempstream.Seek(0L, IO.SeekOrigin.Begin) |> ignore

@@ -5,8 +5,6 @@ open Helpers
 open System.Management.Automation.Host
 open System.Management.Automation.Language
 
-type HudInfo = { Lines: string[] }
-
 [<Sealed>]
 type Host(cmdlet: PSCmdlet, bufferString: string, settings: PsCompleteSettings) =
     let numOfNewlines = 

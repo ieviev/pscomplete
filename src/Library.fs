@@ -98,11 +98,14 @@ type PsCompleteCmdlet() =
                 let ui = this.Host.UI.RawUI
                 let pagelen = this.CachedHost.FrameHeight - 2
 
+                let matches = this.CommandCompletion.CompletionMatches.ToArray()
+                // logDebug({|matches=matches|})
+
                 let initState = {
                     BufferString = this.BufferString
                     RawFilterText = ""
                     SelectedIndex = 0
-                    Content = this.CommandCompletion.CompletionMatches.ToArray()
+                    Content = matches
                     FilteredCache = ResizeArray(this.CommandCompletion.CompletionMatches)
                     PageLength = this.CachedHost.FrameHeight - 2
                     PrevHudArray = [||]

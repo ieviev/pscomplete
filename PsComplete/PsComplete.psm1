@@ -2,7 +2,6 @@ using namespace System.Management.Automation
 
 # global:
 New-Variable -Scope Global -Name PsCompleteSettings -Value ([PSCustomObject]@{
-        AutoExpandCommands   = @("")
         ExpandByArgumentType = $false
         ForceClearBeforeUse  = $false
         TopRightHUDEnabled  = $false
